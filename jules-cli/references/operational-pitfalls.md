@@ -646,3 +646,43 @@ Found 5 issues (2🔴, 3🟡). Scope: 11_webos/backend/. Next: fix Issue 1-2 fir
 | `CURRENT.md#b007` | Mark as needs-fix |
 ```
 
+---
+
+## P14: Ghost Session Reuse — CLI Mode Session ID Guessing
+
+### Symptom
+`submit` returns `ok: true` but multiple tasks map to the same `session_id`.
+New sessions don't appear on the Jules dashboard.
+
+### Root Cause
+CLI mode creates a session via `jules remote new`, then calls `jules remote list --session`
+to **guess** the session_id from stdout. This can match a stale/previous session.
+
+### Fix
+**Use API mode** (set `JULES_API_KEY`). API mode returns an explicit session ID — no guessing.
+
+The bridge now warns when falling back to CLI mode and `choose_mode()` prints:
+"CLI mode has known reliability issues (ghost session reuse)."
+
+### Related
+- P2: Bridge CLI Mode — Ghost Session Reuse (original report)
+
+---
+
+## P15: `--parallel` Triggers API 400 INVALID_ARGUMENT
+
+### Symptom
+Adding `--parallel 1` (or any value) to `jules remote new` returns HTTP 400.
+The entire batch fails with zero sessions created.
+
+### Root Cause
+The Jules API does not support the `--parallel` flag.
+
+### Fix
+`--parallel` has been permanently removed from `cli_remote_new()` in `jules_bridge.py`.
+
+### Anti-Pattern
+```bash
+# ❌ WRONG: --parallel causes 400
+jules remote new --repo owner/repo --parallel 1
+```

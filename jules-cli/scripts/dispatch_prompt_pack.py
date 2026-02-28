@@ -118,6 +118,16 @@ def filter_task_files(tasks_dir: str, pending_ids: Set[str]) -> List[str]:
         f"GATE-1 PASSED: {len(matched)} pending tasks to submit "
         f"(skipped {len(skipped)} non-pending)"
     )
+
+    # GATE-1b: tasks/ must ONLY contain pending files (no stale leftovers)
+    extra_files = [f for f in skipped if f not in (".", "..")]
+    if extra_files:
+        eprint(
+            f"GATE-1b WARNING: {len(extra_files)} extra files in tasks/ not in PACK pending: "
+            f"{', '.join(extra_files)}\n"
+            "  These will NOT be submitted but should be removed to keep the pack clean."
+        )
+
     return matched
 
 
@@ -345,7 +355,12 @@ def eprint(*args: Any) -> None:
 
 
 def run_bridge(cmd: List[str]) -> Dict[str, Any]:
-    env = {**os.environ, "PYTHONUTF8": "1", "PYTHONIOENCODING": "utf-8"}
+    env = {
+        **os.environ,
+        "PYTHONUTF8": "1",
+        "PYTHONIOENCODING": "utf-8",
+        "_JULES_DISPATCH": "1",  # Required by jules_bridge.py cmd_submit gate
+    }
     p = subprocess.run(
         cmd,
         capture_output=True,
@@ -396,7 +411,7 @@ def get_default_repo() -> str:
 
 
 def get_default_branch() -> str:
-    """Auto-detect remote HEAD branch or fallback to current branch"""
+    """Auto-detect remote HEAD branch or current branch. Blocks if neither found."""
     try:
         r = subprocess.run(
             ["git", "symbolic-ref", "refs/remotes/origin/HEAD"],
@@ -413,7 +428,12 @@ def get_default_branch() -> str:
             return r.stdout.strip()
     except Exception:
         pass
-    return "main"
+    # Do NOT guess "main" — wrong branch causes queued -> FAILED (P11)
+    raise SystemExit(
+        "Cannot auto-detect default branch.\n"
+        "Specify --starting-branch explicitly (e.g. --starting-branch master).\n"
+        "Guessing 'main' is disabled because wrong branch causes silent FAILED sessions."
+    )
 
 
 def main() -> None:
@@ -440,6 +460,11 @@ def main() -> None:
         default=50,
         help="GATE-4: max tasks per dispatch (default 50, prevents mass submission)",
     )
+    ap.add_argument(
+        "--no-cache",
+        action="store_true",
+        help="Clear idempotency records for pending tasks before submission",
+    )
     ap.add_argument("--json", action="store_true")
     args = ap.parse_args()
 
@@ -450,6 +475,22 @@ def main() -> None:
     # ---- GATE-1: Only submit pending tasks from PACK.md ----
     pending_ids = parse_pending_tasks(args.pack_dir)
     task_files = filter_task_files(tasks_dir, pending_ids)
+
+    # ---- --no-cache: Clear idempotency records for pending tasks ----
+    if args.no_cache:
+        state_dir = os.path.join(".runtime", "jules", "dispatch")
+        if os.path.isdir(state_dir):
+            cleared = 0
+            for f in os.listdir(state_dir):
+                if f.endswith(".json"):
+                    os.remove(os.path.join(state_dir, f))
+                    cleared += 1
+            if cleared:
+                eprint(
+                    f"--no-cache: Cleared {cleared} idempotency records from {state_dir}"
+                )
+        else:
+            eprint("--no-cache: No idempotency records found (clean state)")
 
     # ---- GATE-4: Batch size limit ----
     if len(task_files) > args.max_batch:

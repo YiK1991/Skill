@@ -42,7 +42,7 @@ if sys.platform == "win32":
     for _stream_name in ("stdout", "stderr"):
         _stream = getattr(sys, _stream_name)
         if hasattr(_stream, "reconfigure"):
-            _stream.reconfigure(encoding="utf-8", errors="replace")
+            _stream.reconfigure(encoding="utf-8", errors="strict")
 
 
 API_BASE = "https://jules.googleapis.com/v1alpha"
@@ -296,7 +296,7 @@ def cli_run(
         capture_output=True,
         text=True,
         encoding="utf-8",
-        errors="replace",
+        errors="strict",
         timeout=timeout_s,
         input=stdin_text,
         env=env,
@@ -312,13 +312,12 @@ def cli_check_available() -> None:
         raise RuntimeError("`jules` CLI not found in PATH.") from e
 
 
-def cli_remote_new(repo: str, prompt: str, parallel: int = 1) -> Tuple[str, str]:
+def cli_remote_new(repo: str, prompt: str) -> Tuple[str, str]:
     # We cannot rely on the stdout format. We return (stdout, stderr) for the record.
     # IMPORTANT: pipe prompt via stdin instead of --session arg to avoid
     # PowerShell/cmd.exe codepage (GBK) corrupting Chinese characters.
+    # NOTE: --parallel is permanently disabled (causes API 400 INVALID_ARGUMENT; see P15).
     cmd = ["jules", "remote", "new", "--repo", repo]
-    if parallel and parallel > 1:
-        cmd += ["--parallel", str(parallel)]
     r = cli_run(cmd, timeout_s=300, stdin_text=prompt)
     if r.returncode != 0:
         raise RuntimeError(
@@ -363,10 +362,30 @@ def cli_guess_session_id(list_output: str, prompt_hint: str = "") -> Optional[st
 def choose_mode(cfg: BridgeConfig) -> str:
     if cfg.mode != "auto":
         return cfg.mode
-    return "api" if cfg.api_key else "cli"
+    if cfg.api_key:
+        return "api"
+    eprint(
+        "WARNING: No JULES_API_KEY detected. Falling back to CLI mode.\n"
+        "CLI mode has known reliability issues (ghost session reuse, see P14).\n"
+        "Set JULES_API_KEY env var for production use."
+    )
+    return "cli"
 
 
 def cmd_submit(cfg: BridgeConfig, title: str, prompt_file: str) -> Dict[str, Any]:
+    # Hard-reject direct calls: only dispatch_prompt_pack.py may call submit.
+    # dispatch sets _JULES_DISPATCH=1 in the subprocess environment.
+    if not os.environ.get("_JULES_DISPATCH"):
+        raise SystemExit(
+            "BLOCKED: Direct jules_bridge.py submit is forbidden.\n"
+            "All submissions MUST go through dispatch_prompt_pack.py\n"
+            "which enforces safety gates (encoding, branch, governance, etc.).\n"
+            "\n"
+            "Run:  python scripts/dispatch_prompt_pack.py --pack-dir <pack>\n"
+            "\n"
+            "If you absolutely must bypass (debugging only):\n"
+            "  set _JULES_DISPATCH=1  (PowerShell: $env:_JULES_DISPATCH='1')"
+        )
     prompt = read_text(prompt_file)
     key = compute_idempotency_key(
         repo=cfg.repo,
