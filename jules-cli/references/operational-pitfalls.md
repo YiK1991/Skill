@@ -365,7 +365,7 @@ echo === ALL DONE ===
 
 ### Pre-Submission Checklist
 
-- [ ] All prompts are in English
+- [ ] All prompts are UTF-8 (CJK allowed; control-plane ids ASCII)
 - [ ] Filenames are short ASCII-only
 - [ ] Task files are in an ASCII-safe directory
 - [ ] Each prompt includes the Document Placement CAUTION block
@@ -392,7 +392,10 @@ task_files = sorted(
 )
 ```
 
-It does NOT read `PACK.md` to check `status: pending` vs `status: submitted/completed`.
+> **RESOLVED**: This bug is fixed. GATE-1 now reads PACK.md and only submits
+> tasks marked `pending`. GATE-1b warns about extra files in `tasks/`.
+
+It ~~does NOT read~~ now reads `PACK.md` to check `status: pending` vs `status: submitted/completed`.
 Every `.md` file in `tasks/` gets submitted regardless.
 
 ### Compounding Factor: P3 (Chinese Paths)
@@ -430,13 +433,16 @@ jules_pack/
 
 ### Fix: Pre-Dispatch Checklist (MANDATORY)
 
+> **LARGELY AUTOMATED**: The dispatch script now handles most of these via gates.
+> Items marked (auto) are enforced by the script.
+
 Before running `dispatch_prompt_pack.py`:
 
-1. **Count**: `ls tasks/*.md | Measure-Object` — verify count matches intended batch
-2. **Verify isolation**: Only NEW tasks should be in `tasks/`
-3. **Single-task test FIRST**: Submit ONE task via `jules_bridge.py submit --prompt-file TASK-017.md` — confirm it succeeds before batch
-4. **ASCII path**: Copy task files to `C:\temp\jules_tasks\` if source path has non-ASCII chars
-5. **Prefer .bat method (P9)**: The `.bat` template is more reliable than `dispatch_prompt_pack.py`
+1. **Count** (auto): GATE-1 filters by PACK.md pending status
+2. **Verify isolation** (auto): GATE-1b warns about extra files
+3. **Single-task test FIRST** (auto): GATE-3 smoke test
+4. **ASCII path** (auto): GATE-2 + GATE-2a auto-copy and rename
+5. **Use dispatch script**: The dispatch script is now the mandatory submission method
 
 ### Anti-Patterns
 ```bash
@@ -508,8 +514,9 @@ AI agent (Codex/Claude) submits a Jules task that immediately enters `FAILED`. R
 AI agent **bypassed all safety gates** by calling `jules_bridge.py submit` directly instead
 of using `dispatch_prompt_pack.py`. This caused three simultaneous violations:
 
-1. **CJK prompt** (P1 violation): AI wrote the entire prompt in Chinese. Windows GBK pipe
-   converted all CJK to `?`, making the prompt unreadable to Jules.
+1. **CJK prompt through PowerShell pipe** (P1 violation): AI piped a Chinese prompt through
+   PowerShell. Windows GBK pipe converted all CJK to `?`. (Note: CJK content is now allowed;
+   the violation is using PowerShell pipe, not the language itself.)
 2. **Missing `--starting-branch master`** (P11 violation): AI omitted the branch parameter.
    Jules defaulted to `main` which doesn't exist in the repo. Even if the prompt were readable,
    the session would fail at clone time.
@@ -520,7 +527,7 @@ of using `dispatch_prompt_pack.py`. This caused three simultaneous violations:
 The V2 retry fixed the Envelope but NOT the CJK or branch issues — so it failed again.
 
 ### Why This Happens
-- AI reads SKILL.md which says "English-only" and "use dispatch script" as principles, but
+- AI reads SKILL.md which says "use dispatch script" as a principle, but
   these rules are buried among 11 other principles.
 - Without a **hard-stop checklist** at the top of the execution path, AI proceeds to submit
   without verifying each rule.
@@ -529,12 +536,12 @@ The V2 retry fixed the Envelope but NOT the CJK or branch issues — so it faile
 
 ### Fix: Pre-Flight Checklist in SKILL.md
 
-The SKILL.md now contains a **HARD STOP Pre-Flight Checklist (H1–H6)** table at the top
-of the file. AI MUST complete all 6 checks before calling any submit command.
+The SKILL.md now contains a **HARD STOP Pre-Flight Checklist (H1–H7)** table at the top
+of the file. AI MUST complete all 7 checks before calling any submit command.
 
 ### Rule
 1. **NEVER call `jules_bridge.py submit` directly.** Always use `dispatch_prompt_pack.py`.
-2. **ALWAYS verify H1–H6** before ANY submission attempt.
+2. **ALWAYS verify H1–H7** before ANY submission attempt.
 3. **After ANY `FAILED` session**, re-read `references/operational-pitfalls.md` entirely
    before retrying. Do NOT assume "just fixing one thing" will work — failures compound.
 4. **If two consecutive sessions fail**, STOP all submission attempts and report to user
@@ -560,7 +567,7 @@ python jules_bridge.py --repo owner/repo --json submit \
 ### Proven Safe Pattern
 ```powershell
 # ✅ ALWAYS use dispatch script with explicit branch
-# 1. Write English-only prompt using Envelope template
+# 1. Write UTF-8 prompt using Envelope template (CJK allowed in body)
 # 2. Place in ASCII-safe pack directory
 # 3. Submit via dispatch with all gates
 python dispatch_prompt_pack.py `

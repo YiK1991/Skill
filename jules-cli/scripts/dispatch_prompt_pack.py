@@ -7,7 +7,7 @@ Gates block submission before any API call is made:
   GATE-UTF8 (Encoding):       All pack/task files must be strict UTF-8 (BOM auto-stripped).
   GATE-2    (ASCII Path):     Non-ASCII paths -> temp dir; basenames renamed to ASCII-safe.
   GATE-2b   (Hydration):      {{ HYDRATE: path:Lx-Ly }} macros replaced (strict UTF-8).
-  GATE-4    (Batch Limit):    Batch size capped (default 10).
+  GATE-4    (Batch Limit):    Batch size capped (default 50).
   GATE-6    (Branch Check):   Verifies starting branch exists on remote.
   GATE-7    (Governance):     Each task must have Governance Capsule + Document Placement.
   GATE-FFFD (Integrity):      Reject prompts containing U+FFFD (silent corruption indicator).
@@ -429,11 +429,7 @@ def get_default_branch() -> str:
     except Exception:
         pass
     # Do NOT guess "main" — wrong branch causes queued -> FAILED (P11)
-    raise SystemExit(
-        "Cannot auto-detect default branch.\n"
-        "Specify --starting-branch explicitly (e.g. --starting-branch master).\n"
-        "Guessing 'main' is disabled because wrong branch causes silent FAILED sessions."
-    )
+    return None
 
 
 def main() -> None:
@@ -467,6 +463,14 @@ def main() -> None:
     )
     ap.add_argument("--json", action="store_true")
     args = ap.parse_args()
+
+    # Validate starting-branch (get_default_branch returns None if undetectable)
+    if args.starting_branch is None:
+        raise SystemExit(
+            "Cannot auto-detect default branch.\n"
+            "Specify --starting-branch explicitly (e.g. --starting-branch master).\n"
+            "Guessing 'main' is disabled because wrong branch causes silent FAILED sessions."
+        )
 
     tasks_dir = os.path.join(args.pack_dir, "tasks")
     if not os.path.isdir(tasks_dir):
@@ -519,6 +523,16 @@ def main() -> None:
     # ---- GATE-2b: Hydrate {{ HYDRATE: ... }} macros ----
     task_files = hydrate_prompt_files(task_files)
 
+    # ---- GATE-HYDRATE-ERR: Reject if any HYDRATE macros failed ----
+    for tf in task_files:
+        content = open(tf, encoding="utf-8").read()
+        if "<!-- HYDRATE ERROR:" in content:
+            raise SystemExit(
+                f"GATE-HYDRATE-ERR BLOCKED: {os.path.basename(tf)} contains failed HYDRATE macros.\n"
+                "The Governance Capsule or other injected content may be missing/corrupt.\n"
+                "Fix: Check the HYDRATE source file paths and encoding, then re-run."
+            )
+
     # ---- GATE-6: Verify remote branch exists ----
     repo = args.repo
     branch = args.starting_branch
@@ -561,7 +575,11 @@ def main() -> None:
                 )
             eprint(f"GATE-6 PASSED: Branch '{branch}' exists in {repo}")
         except subprocess.TimeoutExpired:
-            eprint(f"GATE-6 SKIPPED: git ls-remote timed out (proceeding anyway)")
+            raise SystemExit(
+                f"GATE-6 BLOCKED: git ls-remote timed out for branch '{branch}'.\n"
+                "Fix: Check network/proxy, increase timeout, or verify branch manually.\n"
+                "Timeout is set to 15s. On slow networks, retry after checking connectivity."
+            )
 
     # ---- GATE-7: Governance Capsule Validation ----
     gate7_failures = []
@@ -634,7 +652,9 @@ def main() -> None:
     for tf in remaining:
         eprint(f"Submitting: {os.path.basename(tf)}")
         results.append(run_bridge(build_cmd(tf)))
-        time.sleep(3)  # Rate limit: prevent API 429 (matches P9 .bat timeout)
+        time.sleep(
+            5
+        )  # Rate limit: 5s delay prevents API 429 (matches P9 recommendation)
 
     # ---- GATE-5: Post-dispatch reconciliation (planned vs actual) ----
     planned = {os.path.splitext(os.path.basename(f))[0] for f in task_files}

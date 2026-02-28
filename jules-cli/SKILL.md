@@ -52,6 +52,7 @@ Before running any dispatch command, output this XML block to force token-by-tok
   <H4>Confirmed: Using dispatch_prompt_pack.py, NOT jules_bridge.py</H4>
   <H5>Confirmed: All paths are ASCII-safe</H5>
   <H6>Confirmed: Document Placement block included in prompt</H6>
+  <H7>Confirmed: Governance Capsule included</H7>
 </PreFlight_Check>
 ```
 
@@ -88,9 +89,9 @@ PACK.md minimal content:
 | TASK-B007-REV | TASK-B007-REV.md | pending |
 ```
 
-### Step 3: Verify the pre-flight checklist (H1–H6)
+### Step 3: Verify the pre-flight checklist (H1–H7)
 
-Confirm all 6 items. If ANY fails, fix before proceeding.
+Confirm all 7 items. If ANY fails, fix before proceeding.
 
 ### Step 4: Submit via dispatch script
 
@@ -127,7 +128,7 @@ python .agent\skills\jules-cli\scripts\jules_bridge.py --json status --session-i
 6. **CI quality red line** — Code changes must not break tests; no skip/comment workarounds.
 7. **Three feedback channels** — Plan loop → In-flight loop (sendMessage) → PR loop (`@Jules`).
 8. **Unified labels** — Every task carries `RUN-ID`, `ASPECT-ID`, `CTX-ID`.
-9. **English-only prompts** — ALL prompt content MUST be English. See P1.
+9. **UTF-8 + control-plane ASCII** — Prompt files MUST be UTF-8. CJK allowed in body. Control-plane identifiers (task_id, paths, section anchors) MUST be ASCII. PowerShell pipe is forbidden. See P1.
 10. **Focused > Generic** — Derive tasks from concrete plan decisions, not broad review dimensions. See P5.
 11. **State machine re-entry** — Only return to main flow on: `AWAITING_PLAN_APPROVAL` (C-tier only), `AWAITING_USER_FEEDBACK`, `FAILED`, `COMPLETED`.
 
@@ -186,6 +187,6 @@ Derive review tasks from **specific plan decisions** (not broad dimensions):
 ### Scripts
 
 - **`scripts/jules_bridge.py`** — Stable local entry point (API mode, JSON output, default `AUTO_CREATE_PR`)
-- **`scripts/dispatch_prompt_pack.py`** — Prompt Pack batch dispatcher (with GATE-1~7 safety checks incl. Governance Capsule)
+- **`scripts/dispatch_prompt_pack.py`** — Prompt Pack batch dispatcher (GATE-1/1b/UTF8/2/2b/4/6/7/FFFD/3 + --no-cache + Governance Capsule)
 - **`scripts/gate_pd_output.py`** — Post-execution quality gate: validates PD-OUT v1 structure (run before PR merge)
 - **`scripts/jules_dispatch.py`** — Lightweight dispatch helper
