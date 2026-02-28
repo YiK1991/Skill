@@ -1,6 +1,7 @@
 MIT License
 
-Copyright (c) 2025 PDCA AI Coding Skill Contributors
+Copyright (c) 2025 Ken Judy (Original PDCA framework)
+Copyright (c) 2025-2026 YiK1991 (Extensions and additional skills)
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
 of this software and associated documentation files (the "Software"), to deal
@@ -19,14 +20,3 @@ AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
 LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
-
----
-
-ATTRIBUTION NOTICE:
-
-This skill implements the PDCA framework for AI code generation as described in:
-"A Plan-Do-Check-Act Framework for AI Code Generation" by Ken Judy
-Published on InfoQ: https://www.infoq.com/articles/PDCA-AI-code-generation/
-
-Original framework and methodology credit: Ken Judy
-Skill implementation: Created with Claude (Anthropic AI)
