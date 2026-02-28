@@ -54,8 +54,17 @@ def parse_pending_tasks(pack_dir: str) -> Set[str]:
             "Cannot determine which tasks to submit without it."
         )
 
-    with open(pack_md, encoding="utf-8") as f:
-        content = f.read()
+    # Read with strict UTF-8 (binary + decode) to give clear error on bad encoding
+    try:
+        raw = open(pack_md, "rb").read()
+        if raw.startswith(b"\xef\xbb\xbf"):
+            raw = raw[3:]  # strip BOM
+        content = raw.decode("utf-8", errors="strict")
+    except UnicodeDecodeError as exc:
+        raise SystemExit(
+            f"GATE-1 BLOCKED: PACK.md is not valid UTF-8 (byte {exc.start}).\n"
+            "Fix: Re-save PACK.md as UTF-8 (no BOM)."
+        )
 
     # Parse markdown table rows: | TASK-XXX | ... | pending | ...
     pending: Set[str] = set()
@@ -207,7 +216,7 @@ def ensure_ascii_paths(task_files: List[str]) -> List[str]:
         shutil.rmtree(temp_dir)
     os.makedirs(temp_dir)
 
-    _task_id_re = re.compile(r"(TASK-\d+)")
+    _task_id_re = re.compile(r"(TASK-[\w-]+)", re.IGNORECASE)
     relocated: List[str] = []
     for i, src in enumerate(task_files):
         orig_name = os.path.basename(src)
@@ -240,6 +249,14 @@ _HYDRATE_RE = re.compile(
 def _read_hydrate_target(raw_path: str, start, end) -> str:
     """Read file content for a HYDRATE macro. Returns replacement text or error comment."""
     path = raw_path.strip()
+    # Fallback: if relative path not found from cwd, try relative to pack-dir or repo root
+    if not os.path.isfile(path) and not os.path.isabs(path):
+        # Try common base directories
+        for base in [os.environ.get("_JULES_PACK_DIR", ""), os.getcwd()]:
+            candidate = os.path.join(base, path)
+            if os.path.isfile(candidate):
+                path = candidate
+                break
     if not os.path.isfile(path):
         return f"<!-- HYDRATE ERROR: file not found: {path} -->"
     try:
@@ -475,6 +492,9 @@ def main() -> None:
     tasks_dir = os.path.join(args.pack_dir, "tasks")
     if not os.path.isdir(tasks_dir):
         raise SystemExit(f"tasks/ not found: {tasks_dir}")
+
+    # Set pack dir for HYDRATE relative path fallback
+    os.environ["_JULES_PACK_DIR"] = os.path.abspath(args.pack_dir)
 
     # ---- GATE-1: Only submit pending tasks from PACK.md ----
     pending_ids = parse_pending_tasks(args.pack_dir)

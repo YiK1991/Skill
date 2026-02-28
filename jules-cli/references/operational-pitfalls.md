@@ -382,11 +382,11 @@ Running `dispatch_prompt_pack.py --pack-dir jules_pack` submits **ALL** task fil
 (including already-completed TASK-001~016), wasting quota on 27 sessions when only 11
 new tasks were intended.
 
-### Root Cause
-`dispatch_prompt_pack.py` scans `tasks/*.md` without any status filtering:
+### Root Cause (Historical)
+`dispatch_prompt_pack.py` used to scan `tasks/*.md` without any status filtering:
 
 ```python
-# dispatch_prompt_pack.py:73-75 — THE BUG
+# dispatch_prompt_pack.py:73-75 — THE BUG (now fixed)
 task_files = sorted(
     [os.path.join(tasks_dir, f) for f in os.listdir(tasks_dir) if f.lower().endswith(".md")]
 )
@@ -395,8 +395,7 @@ task_files = sorted(
 > **RESOLVED**: This bug is fixed. GATE-1 now reads PACK.md and only submits
 > tasks marked `pending`. GATE-1b warns about extra files in `tasks/`.
 
-It ~~does NOT read~~ now reads `PACK.md` to check `status: pending` vs `status: submitted/completed`.
-Every `.md` file in `tasks/` gets submitted regardless.
+(Now) GATE-1 filters by PACK.md pending status; non-pending files are skipped and warned (GATE-1b).
 
 ### Compounding Factor: P3 (Chinese Paths)
 When `--pack-dir` contains Chinese characters (e.g., `工作同步/028_电商资料/...`),
