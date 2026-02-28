@@ -153,7 +153,7 @@
 
 强制规则：
 - 使用**稳定 heading anchors**，跨文件只用 RefSpec 链接（`path#anchor`），不复制粘贴大段内容
-- 文档 >150 行 → **必须拆分**为 `INDEX/OVERVIEW.md` + `DETAILS.md` 两份文件（放在修改白名单允许路径内）
+- 文档缺乏 PD 导航结构（无 Index/Head Anchor/稳定 anchors）或包含大段证据/日志 → **必须拆分**为 `INDEX/OVERVIEW.md` + `DETAILS.md`（放在修改白名单允许路径内）
 - 仍遵守 §4 的 placement 双写 + 禁止新目录红线
 
 ### A) Changes

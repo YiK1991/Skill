@@ -20,6 +20,11 @@
 - `SKILL.md`：导航面（Layer 0–1）——告诉"现在读什么"。
 - `references/`：深层细节（Layer 2–3）——按阶段/关注点拆分。
 
+> **入口规则**：
+> - **plan-doc-editor 模块**（含 `INDEX.md` + `CURRENT.md` + `_tracker.md`）：入口 = `INDEX.md` → `CURRENT.md`（Two-Pass 的 Pass0/Pass1）。若存在 `SKILL.md`，它仅作为导航壳指向 INDEX/CURRENT。
+> - **skill-pack 模块**（无 INDEX/CURRENT）：入口 = `SKILL.md`。
+> - **混合模块**：优先读 `INDEX.md`；没有则读 `SKILL.md`。
+
 ---
 
 ## 如何在 prompt 中引用计划
