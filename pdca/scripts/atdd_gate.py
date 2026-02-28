@@ -37,6 +37,8 @@
 """
 
 import argparse
+import hashlib
+import json
 import os
 import re
 import subprocess
@@ -45,6 +47,81 @@ import xml.etree.ElementTree as ET
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Dict, List, Optional, Set, Tuple
+
+# === Circuit Breaker (optional, disabled by default) ===
+# Enable: PDCA_GATE_MAX_RETRIES=3
+# State:  PDCA_GATE_STATE_PATH=.pdca/gate_state.json (default)
+_MAX_RETRIES = int(os.environ.get("PDCA_GATE_MAX_RETRIES", "0"))
+_STATE_PATH = Path(os.environ.get("PDCA_GATE_STATE_PATH", ".pdca/gate_state.json"))
+
+
+def _error_signature(errors: List[str]) -> str:
+    """Deterministic hash of error messages to detect same-root-cause."""
+    content = "\n".join(sorted(errors))
+    return hashlib.sha256(content.encode()).hexdigest()[:12]
+
+
+def _load_breaker_state() -> dict:
+    if _STATE_PATH.exists():
+        try:
+            return json.loads(_STATE_PATH.read_text(encoding="utf-8"))
+        except (json.JSONDecodeError, OSError):
+            pass
+    return {}
+
+
+def _save_breaker_state(state: dict) -> None:
+    _STATE_PATH.parent.mkdir(parents=True, exist_ok=True)
+    _STATE_PATH.write_text(json.dumps(state, indent=2), encoding="utf-8")
+
+
+def _finalize_gate(
+    gate_name: str,
+    passed: bool,
+    errors: List[str],
+    env_error: bool = False,
+) -> int:
+    """Unified exit point with optional circuit breaker."""
+    for e in errors:
+        print(e, file=sys.stderr)
+
+    if passed:
+        # Reset breaker on success
+        if _MAX_RETRIES > 0:
+            state = _load_breaker_state()
+            state.pop(gate_name, None)
+            _save_breaker_state(state)
+        sys.stdout.write("true\n")
+        return 0
+
+    # Environment errors: exit 2, do not count toward retries
+    if env_error:
+        print(f"[ENV_ERROR] {gate_name}: environment/infrastructure failure — do NOT self-repair", file=sys.stderr)
+        sys.stdout.write("false\n")
+        return 2
+
+    # Circuit breaker logic
+    if _MAX_RETRIES > 0:
+        sig = _error_signature(errors)
+        state = _load_breaker_state()
+        entry = state.get(gate_name, {})
+        if entry.get("sig") == sig:
+            entry["count"] = entry.get("count", 0) + 1
+        else:
+            entry = {"sig": sig, "count": 1}
+        state[gate_name] = entry
+        _save_breaker_state(state)
+
+        if entry["count"] >= _MAX_RETRIES:
+            print(
+                f"[CIRCUIT_BREAKER] {gate_name}: same-root-cause failure {entry['count']}/{_MAX_RETRIES} — human-in-the-loop required",
+                file=sys.stderr,
+            )
+            sys.stdout.write("false\n")
+            return 2
+
+    sys.stdout.write("false\n")
+    return 1
 
 # === 配置项 ===
 MODE = os.environ.get("ATDD_MODE", "strict")  # strict / robust
@@ -601,10 +678,7 @@ def main() -> int:
     # Gate A
     if args.parity_only:
         passed, errors = gate_a_parity(plan_items, test_index)
-        for e in errors:
-            print(e, file=sys.stderr)
-        sys.stdout.write("true\n" if passed else "false\n")
-        return 0 if passed else 1
+        return _finalize_gate("gate_a", passed, errors)
 
     # Gate C
     if args.audit:
@@ -632,29 +706,28 @@ def main() -> int:
             return 1
 
         passed, errors = gate_c_audit(plan_items, base_items)
-        for e in errors:
-            print(e, file=sys.stderr)
-        sys.stdout.write("true\n" if passed else "false\n")
-        return 0 if passed else 1
+        return _finalize_gate("gate_c", passed, errors)
 
     # Gate B
     junit_path = Path(args.junit) if args.junit else Path("test-results/junit.xml")
     if not junit_path.exists():
-        print(f"[ERROR] JUnit XML not found: {junit_path}", file=sys.stderr)
-        sys.stdout.write("false\n")
-        return 1
+        return _finalize_gate("gate_b", False, [f"[ERROR] JUnit XML not found: {junit_path}"], env_error=True)
 
-    junit_status, junit_cases = parse_junit(junit_path)
+    try:
+        junit_status, junit_cases = parse_junit(junit_path)
+    except Exception as exc:
+        return _finalize_gate(
+            "gate_b", False,
+            [f"[ERROR] JUnit XML parse failed: {exc}"],
+            env_error=True,
+        )
+
     passed, passed_keys, errors = gate_b_junit(plan_items, junit_status, junit_cases, args.strict)
-
-    for e in errors:
-        print(e, file=sys.stderr)
 
     if args.tick and (not args.dry_run):
         update_plan(plan_path, passed_keys, reset=args.reset)
 
-    sys.stdout.write("true\n" if passed else "false\n")
-    return 0 if passed else 1
+    return _finalize_gate("gate_b", passed, errors)
 
 
 if __name__ == "__main__":

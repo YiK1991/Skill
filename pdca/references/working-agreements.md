@@ -98,6 +98,24 @@ Ask yourself throughout the session:
 - Conduct retrospective
 - Update prompts based on learnings
 
+## Automated Gate Failure Protocol
+
+When AI agents run gate scripts (atdd_gate, doc_gate) in automated loops:
+
+### Failure Classification
+
+| Type | Examples | Action |
+|------|----------|--------|
+| **Logic Failure** | Test assertion error, missing test, parity mismatch | Self-repair allowed (up to max retries) |
+| **Environment Failure** | git not found, XML parse error, permission denied, path not found | Do NOT self-repair. Mark as blocked immediately |
+
+### Max Retries Rule
+
+- Same-root-cause failures: **≤3 consecutive attempts**, then STOP
+- On stop: record `command + stderr/traceback + repo state` and escalate to human
+- Environment failures are NOT counted toward self-repair retries — escalate immediately
+- Enable via: `export PDCA_GATE_MAX_RETRIES=3` (scripts support optional circuit breaker)
+
 ## Why These Matter
 
 These agreements help you:

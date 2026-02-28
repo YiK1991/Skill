@@ -44,6 +44,32 @@ Maintain a separate index for:
 
 This is implemented as the "Files touched" section + session Tool Outputs Index.
 
+## Code-safe compression rules
+Context compression must never destroy contract information needed for correct reasoning.
+
+**100% preserve (never compress):**
+
+- File paths and symbol names
+- Public signatures (function / method / class / interface declarations)
+- Type definitions, DTOs, schemas, enums
+- Critical comments: invariants, security notes, `// WHY:` annotations
+- Import/export statements that define module boundaries
+
+**Allowed to fold (replace body with summary):**
+
+- Function/method body internals (keep signature + 1–3 line behavior summary)
+- Boilerplate / scaffolding code
+- Test fixtures and generated code (keep public surface)
+- Repeated similar blocks (keep first instance, summarize count)
+
+**Recommended fold format:**
+
+```
+def calculate_forecast(series: TimeSeries, horizon: int) -> TimeSeries:
+    # Applies TFT model with covariates, returns n-step forecast.
+    # ~45 lines: preprocessing → model.predict → post-processing
+```
+
 ## Anti-patterns
 
 - ❌ Regenerating the entire summary each time (causes drift).

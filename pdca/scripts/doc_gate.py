@@ -19,12 +19,90 @@
 """
 
 import argparse
+import hashlib
+import json
 import re
 import subprocess
 import sys
+import os
 from dataclasses import dataclass
 from pathlib import Path
 from typing import List, Optional, Sequence, Set, Tuple
+
+# === Circuit Breaker (optional, disabled by default) ===
+# Enable: PDCA_GATE_MAX_RETRIES=3
+# State:  PDCA_GATE_STATE_PATH=.pdca/gate_state.json (default)
+_MAX_RETRIES = int(os.environ.get("PDCA_GATE_MAX_RETRIES", "0"))
+_STATE_PATH = Path(os.environ.get("PDCA_GATE_STATE_PATH", ".pdca/gate_state.json"))
+
+
+def _error_signature(errors: List[str]) -> str:
+    """Deterministic hash of error messages to detect same-root-cause."""
+    content = "\n".join(sorted(errors))
+    return hashlib.sha256(content.encode()).hexdigest()[:12]
+
+
+def _load_breaker_state() -> dict:
+    if _STATE_PATH.exists():
+        try:
+            return json.loads(_STATE_PATH.read_text(encoding="utf-8"))
+        except (json.JSONDecodeError, OSError):
+            pass
+    return {}
+
+
+def _save_breaker_state(state: dict) -> None:
+    _STATE_PATH.parent.mkdir(parents=True, exist_ok=True)
+    _STATE_PATH.write_text(json.dumps(state, indent=2), encoding="utf-8")
+
+
+def _finalize_gate(
+    gate_name: str,
+    passed: bool,
+    errors: List[str],
+    env_error: bool = False,
+) -> int:
+    """Unified exit point with optional circuit breaker."""
+    for e in errors:
+        print(e, file=sys.stderr)
+
+    if passed:
+        if _MAX_RETRIES > 0:
+            state = _load_breaker_state()
+            state.pop(gate_name, None)
+            _save_breaker_state(state)
+        sys.stdout.write("true\n")
+        return 0
+
+    if env_error:
+        print(
+            f"[ENV_ERROR] {gate_name}: environment/infrastructure failure — do NOT self-repair",
+            file=sys.stderr,
+        )
+        sys.stdout.write("false\n")
+        return 2
+
+    if _MAX_RETRIES > 0:
+        sig = _error_signature(errors)
+        state = _load_breaker_state()
+        entry = state.get(gate_name, {})
+        if entry.get("sig") == sig:
+            entry["count"] = entry.get("count", 0) + 1
+        else:
+            entry = {"sig": sig, "count": 1}
+        state[gate_name] = entry
+        _save_breaker_state(state)
+
+        if entry["count"] >= _MAX_RETRIES:
+            print(
+                f"[CIRCUIT_BREAKER] {gate_name}: same-root-cause failure {entry['count']}/{_MAX_RETRIES} — human-in-the-loop required",
+                file=sys.stderr,
+            )
+            sys.stdout.write("false\n")
+            return 2
+
+    sys.stdout.write("false\n")
+    return 1
 
 
 @dataclass(frozen=True)
@@ -132,7 +210,10 @@ def check_cross_layer(changes: List[Change]) -> Tuple[bool, str]:
     if adr_added:
         return True, ""
 
-    return False, f"跨层变更 ({sorted(touched_layers)}) 必须新增 docs/decisions/ADR-*.md"
+    return (
+        False,
+        f"跨层变更 ({sorted(touched_layers)}) 必须新增 docs/decisions/ADR-*.md",
+    )
 
 
 def check_api_changes(changed_paths: Set[str]) -> Tuple[bool, str]:
@@ -147,7 +228,8 @@ def check_api_changes(changed_paths: Set[str]) -> Tuple[bool, str]:
         return True, ""
 
     docs_updated = any(
-        p.startswith("docs/api/") or p.startswith("docs/changes/") for p in changed_paths
+        p.startswith("docs/api/") or p.startswith("docs/changes/")
+        for p in changed_paths
     )
     if docs_updated:
         return True, ""
@@ -158,15 +240,17 @@ def check_api_changes(changed_paths: Set[str]) -> Tuple[bool, str]:
 def main() -> int:
     ap = argparse.ArgumentParser(description="Doc Gate V3+ - 文档门禁工具")
     ap.add_argument("--base", default="origin/main", help="比较基准分支/SHA")
-    ap.add_argument("--strict", action="store_true", help="严格模式 (git/diff 失败即失败)")
+    ap.add_argument(
+        "--strict", action="store_true", help="严格模式 (git/diff 失败即失败)"
+    )
     args = ap.parse_args()
 
     changes, warn_or_err, diff_base = get_changes(args.base, strict=args.strict)
 
     if changes is None:
-        print(f"[ERROR] {warn_or_err}", file=sys.stderr)
-        sys.stdout.write("false\n")
-        return 1
+        return _finalize_gate(
+            "gate_d", False, [f"[ERROR] {warn_or_err}"], env_error=True
+        )
 
     if warn_or_err:
         print(f"[WARN] {warn_or_err}", file=sys.stderr)
@@ -193,17 +277,19 @@ def main() -> int:
             errors.append(msg)
 
     if not all_passed:
-        print(f"[FAIL] Doc Gate failed (base={args.base}, diff_base={diff_base})", file=sys.stderr)
-        for e in errors:
-            print(f"  - {e}", file=sys.stderr)
-        print("[FAIL] Changed files:", file=sys.stderr)
+        errors.insert(
+            0, f"[FAIL] Doc Gate failed (base={args.base}, diff_base={diff_base})"
+        )
+        errors.append("[FAIL] Changed files:")
         for c in sorted(changes, key=lambda x: x.path):
-            print(f"  - {c.status}\t{c.path}", file=sys.stderr)
+            errors.append(f"  - {c.status}\t{c.path}")
     else:
-        print(f"[PASS] Doc Gate 通过 (base={args.base}, diff_base={diff_base})", file=sys.stderr)
+        print(
+            f"[PASS] Doc Gate 通过 (base={args.base}, diff_base={diff_base})",
+            file=sys.stderr,
+        )
 
-    sys.stdout.write("true\n" if all_passed else "false\n")
-    return 0 if all_passed else 1
+    return _finalize_gate("gate_d", all_passed, errors)
 
 
 if __name__ == "__main__":

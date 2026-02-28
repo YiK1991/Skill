@@ -18,14 +18,41 @@ Use this skill for:
 
 **Do NOT use for:**
 
-- Simple bug fixes (use lightweight version)
 - Trivial changes that don't need testing
 - Exploratory coding or prototyping
+- Simple, well-patterned tasks → use **Lite Mode** below
+
+## Lite Mode (Fast-track)
+
+For small, well-understood changes that don't justify the full PDCA cycle.
+
+**Eligibility (ALL must be true):**
+
+1. Single-file change (or ≤2 tightly-coupled files)
+2. Total diff < 50 lines
+3. No cross-layer / cross-module dependencies
+4. Existing test pattern can be reused (copy-adapt, not invent)
+5. No architectural or public-interface change
+
+**Lite Mode flow:**
+
+1. Write TDD steps directly (skip Analysis/Planning prompts)
+2. Implement: RED → GREEN → Refactor
+3. Run existing test suite to verify no regressions
+4. Commit
+
+**Escalation triggers (→ switch to Full Mode immediately):**
+
+- Any eligibility condition becomes false mid-work
+- You discover unexpected coupling or missing context
+- Test failures reveal deeper issues
+- Changes grow beyond 50 lines
 
 ## Quick Start
 
 For a standard coding session:
 
+0. **Decide Mode** - Evaluate Lite Mode eligibility above. If ALL 5 conditions are met → use Lite Mode flow. Otherwise → Full Mode below.
 1. **Review Working Agreements** - Load references/working-agreements.md (1 min read)
 2. **Run Analysis**: "Load references/analysis-prompt.md and analyze [your objective]"
 3. **Run Planning**: "Load references/planning-prompt.md and create the plan"
