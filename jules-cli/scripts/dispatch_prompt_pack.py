@@ -4,13 +4,15 @@
 Gates block submission before any API call is made:
 
   GATE-1    (Status Filter):  Only tasks marked `pending` in PACK.md are submitted.
+  GATE-FNAME (Unique Mapping): Each pending task_id maps to exactly one file; duplicate/missing files are blocked.
   GATE-UTF8 (Encoding):       All pack/task files must be strict UTF-8 (BOM auto-stripped).
-  GATE-2    (ASCII Path):     Non-ASCII paths -> temp dir; basenames renamed to ASCII-safe.
+  GATE-2    (ASCII Path):     Non-ASCII paths -> temp dir; basenames renamed to canonical TASK-XXX.md.
   GATE-2b   (Hydration):      {{ HYDRATE: path:Lx-Ly }} macros replaced (strict UTF-8).
   GATE-4    (Batch Limit):    Batch size capped (default 50).
   GATE-6    (Branch Check):   Verifies starting branch exists on remote.
   GATE-7    (Governance):     Each task must have Governance Capsule + Document Placement.
   GATE-FFFD (Integrity):      Reject prompts containing U+FFFD (silent corruption indicator).
+  GATE-TASKID (Content):      task_id in file header must match filename prefix (case-insensitive).
   GATE-3    (Smoke Test):     First task submitted alone; failure aborts batch.
 
 See jules-cli/references/operational-pitfalls.md for the full pitfall catalog.
@@ -140,6 +142,62 @@ def filter_task_files(tasks_dir: str, pending_ids: Set[str]) -> List[str]:
     return matched
 
 
+# ========================== GATE-FNAME: Unique task_id→file mapping ================
+
+_TASK_ID_RE = re.compile(r"(TASK-[\w-]+)", re.IGNORECASE)
+
+
+def extract_task_id_from_filename(fname: str) -> str | None:
+    """Extract the canonical (uppercased) TASK-XXX id from a filename."""
+    m = _TASK_ID_RE.search(os.path.basename(fname))
+    return m.group(1).upper() if m else None
+
+
+def gate_fname_unique_mapping(
+    task_files: List[str], pending_ids: Set[str]
+) -> Dict[str, str]:
+    """Enforce 1:1 mapping: each pending task_id maps to exactly one file.
+
+    Returns a dict {task_id_upper: file_path}.
+    Raises SystemExit if any task_id has 0 or >1 matching files.
+    """
+    # Group files by task_id
+    by_id: Dict[str, List[str]] = {}
+    for fpath in task_files:
+        tid = extract_task_id_from_filename(fpath)
+        if tid:
+            by_id.setdefault(tid, []).append(fpath)
+
+    errors: List[str] = []
+    mapping: Dict[str, str] = {}
+
+    for tid in sorted(pending_ids):
+        tid_upper = tid.upper()
+        matches = by_id.get(tid_upper, [])
+        if len(matches) == 0:
+            errors.append(
+                f"  {tid_upper}: no matching file in tasks/ (expected TASK-XXX*.md)"
+            )
+        elif len(matches) > 1:
+            names = ", ".join(os.path.basename(f) for f in matches)
+            errors.append(
+                f"  {tid_upper}: {len(matches)} files match ({names}).\n"
+                f"    Fix: keep one canonical file; move others to tasks/_stale/ or rename."
+            )
+        else:
+            mapping[tid_upper] = matches[0]
+
+    if errors:
+        raise SystemExit(
+            "GATE-FNAME BLOCKED: task_id → file mapping is not 1:1\n\n"
+            + "\n".join(errors)
+            + "\n\nEach pending TASK-XXX in PACK.md must have exactly one file in tasks/."
+        )
+
+    eprint(f"GATE-FNAME PASSED: {len(mapping)} tasks have unique file mappings")
+    return mapping
+
+
 # ========================== GATE-UTF8: Strict Encoding Enforcement =================
 
 
@@ -220,12 +278,15 @@ def ensure_ascii_paths(task_files: List[str]) -> List[str]:
     relocated: List[str] = []
     for i, src in enumerate(task_files):
         orig_name = os.path.basename(src)
+        tid = extract_task_id_from_filename(orig_name)
+        ext = os.path.splitext(orig_name)[1] or ".md"
+        # Canonical temp name: always TASK-XXX.md (strip slug; task_id is the key)
+        canonical_name = f"{tid}{ext}" if tid else f"TASK-{i:03d}{ext}"
         if is_ascii_safe(orig_name):
-            safe_name = orig_name
+            # Even ASCII files get canonical name in temp to ensure consistency
+            safe_name = canonical_name if canonical_name != orig_name else orig_name
         else:
-            m = _task_id_re.search(orig_name)
-            ext = os.path.splitext(orig_name)[1] or ".md"
-            safe_name = f"{m.group(1)}{ext}" if m else f"TASK-{i:03d}{ext}"
+            safe_name = canonical_name
         dst = os.path.join(temp_dir, safe_name)
         shutil.copy2(src, dst)
         if safe_name != orig_name:
@@ -233,7 +294,8 @@ def ensure_ascii_paths(task_files: List[str]) -> List[str]:
         relocated.append(dst)
 
     eprint(
-        f"GATE-2 PASSED: Copied {len(relocated)} files to ASCII-safe path: {temp_dir}"
+        f"GATE-2 PASSED: Copied {len(relocated)} files to ASCII-safe path: {temp_dir} "
+        f"(canonical basenames: TASK-XXX.md)"
     )
     return relocated
 
@@ -500,6 +562,11 @@ def main() -> None:
     pending_ids = parse_pending_tasks(args.pack_dir)
     task_files = filter_task_files(tasks_dir, pending_ids)
 
+    # ---- GATE-FNAME: Enforce unique 1:1 task_id → file mapping ----
+    id_to_file = gate_fname_unique_mapping(task_files, pending_ids)
+    # Reorder task_files to match PACK.md pending order (deterministic)
+    task_files = list(id_to_file.values())
+
     # ---- --no-cache: Clear idempotency records for pending tasks ----
     if args.no_cache:
         state_dir = os.path.join(".runtime", "jules", "dispatch")
@@ -632,11 +699,41 @@ def main() -> None:
     # ---- GATE-FFFD: Reject if any replacement chars leaked through ----
     check_no_replacement_chars(task_files)
 
+    # ---- GATE-TASKID-CONTENT: file header task_id must match filename prefix ----
+    taskid_failures = []
+    for tf in task_files:
+        tid_from_name = extract_task_id_from_filename(tf)
+        if not tid_from_name:
+            continue
+        try:
+            first_lines = open(tf, encoding="utf-8").read(512)
+        except (OSError, UnicodeDecodeError):
+            continue
+        m = re.search(r"task_id:\s*(TASK-[\w-]+)", first_lines, re.IGNORECASE)
+        if m:
+            tid_from_content = m.group(1).upper()
+            if tid_from_content != tid_from_name:
+                taskid_failures.append(
+                    f"  {os.path.basename(tf)}: header task_id='{tid_from_content}' "
+                    f"!= filename prefix '{tid_from_name}'"
+                )
+    if taskid_failures:
+        raise SystemExit(
+            "GATE-TASKID BLOCKED: task_id in file header does not match filename prefix\n\n"
+            + "\n".join(taskid_failures)
+            + "\n\nFix: ensure the 'task_id:' YAML field matches the filename TASK-XXX prefix."
+        )
+    if task_files:
+        eprint("GATE-TASKID PASSED: all task_id headers match filename prefixes")
+
     bridge_py = os.path.join(os.path.dirname(__file__), "jules_bridge.py")
 
     def build_cmd(tf: str) -> List[str]:
-        base = os.path.basename(tf)
-        title = os.path.splitext(base)[0]
+        # title = task_id (canonical, not filename stem) for stable cross-system tracking
+        tid = (
+            extract_task_id_from_filename(tf)
+            or os.path.splitext(os.path.basename(tf))[0]
+        )
         cmd = [
             sys.executable,
             bridge_py,
@@ -649,7 +746,7 @@ def main() -> None:
         ]
         if args.require_plan_approval:
             cmd.append("--require-plan-approval")
-        cmd += ["--json", "submit", "--title", title, "--prompt-file", tf]
+        cmd += ["--json", "submit", "--title", tid, "--prompt-file", tf]
         return cmd
 
     # ---- GATE-3: Smoke test first task ----
