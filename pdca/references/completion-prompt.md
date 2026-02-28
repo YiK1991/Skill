@@ -206,11 +206,12 @@ Run and report the boolean outcome (stdout) and the key failure details (stderr)
 1. Gate A parity (must be true):
    - `python3 scripts/atdd_gate.py --plan TEST_PLAN.md --tests-root tests/atdd --parity-only`
 2. Acceptance tests + JUnit artifact:
+   - `rm -f "$ATDD_JUNIT_PATH"` (delete stale results first)
    - `$ATDD_TEST_CMD`
-3. Gate B JUnit boolean verify (no writes):
+3. Gate B JUnit boolean verify (completion gate, no writes):
    - `python3 scripts/atdd_gate.py --plan TEST_PLAN.md --tests-root tests/atdd --junit "$ATDD_JUNIT_PATH" --strict --dry-run`
 4. Gate D doc gate (when applicable):
-   - `python3 scripts/doc_gate.py --base origin/main --strict`
+   - `python3 scripts/doc_gate.py --base auto --strict`
 
 ### What to do when a gate fails
 - Identify **which gate** failed and list the failing `ATDD-xxx` items.
@@ -220,3 +221,4 @@ Run and report the boolean outcome (stdout) and the key failure details (stderr)
 ### Optional tick (only outside of gates)
 If an explicit action requests updating progress:
 - `python3 scripts/atdd_gate.py --plan TEST_PLAN.md --tests-root tests/atdd --junit "$ATDD_JUNIT_PATH" --tick --strict`
+- **If tick was used:** always `git add TEST_PLAN.md` and include it in the commit.

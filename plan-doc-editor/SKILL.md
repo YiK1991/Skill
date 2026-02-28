@@ -1,8 +1,7 @@
 ---
 name: plan-doc-editor
-description: This skill should be used when the user asks to "restructure a plan", "split a long plan into phases", "create a plan skeleton", "write back review findings into a plan", "重构计划", "拆分长计划", "创建计划骨架", "写入审查发现", or mentions progressive disclosure for plan documents. Converts complex goals into layered, iteratable plan-as-skill packages with standards-first design, investigation tracking, and batch task management.
+description: This skill should be used when the user asks to "restructure a plan", "split a long plan into phases", "create a plan skeleton", "write back review findings into a plan", "计划", "拆分长计划", "创建计划骨架", "写入审查发现", or mentions progressive disclosure for plan documents. Converts complex goals into layered, iteratable plan-as-skill packages with standards-first design, investigation tracking, and batch task management.
 ---
-
 # Plan Doc Editor
 
 Restructure **complex plans too long for one context window** into layered modules. Never simplify away details — restructure so humans and AI load only needed context.
@@ -59,6 +58,7 @@ Define Standards (§0 Norms)
 `execution/B*` · `investigation/INV-*` · `references/P*` · `questions/Q*` · `history/*`
 
 **When to load dynamic**—only on trigger:
+
 1. User names a specific ID (B/INV/P/Q)
 2. Tracker marks a row `active` / `blocked` / `depends_on`
 3. B frontmatter pointers: `prerequisites` / `related_investigations` / `impact_refs`
@@ -83,12 +83,12 @@ When context is missing, follow this fixed sequence:
 
 | State         | Entry Gate                | Fallback on issues |
 | ------------- | ------------------------- | ------------------ |
-| NORMING       | — (initial)               | norms changed      |
-| INVESTIGATING | §0 baseline confirmed     | new unknowns found |
+| NORMING       | — (initial)              | norms changed      |
+| INVESTIGATING | §0 baseline confirmed    | new unknowns found |
 | DESIGNING     | All INV items REVIEWED    | design flaw found  |
-| READY         | Design contracts complete | —                  |
-| EXECUTING     | ATDD task list complete   | —                  |
-| CLOSED        | All DoD satisfied         | —                  |
+| READY         | Design contracts complete | —                 |
+| EXECUTING     | ATDD task list complete   | —                 |
+| CLOSED        | All DoD satisfied         | —                 |
 
 Any state can fall back to earlier states when issues arise.
 
@@ -123,13 +123,13 @@ Investigation = **neutral fact-finding against §0**. Only facts, constraints, a
 
 ### Five Dimensions
 
-| Dimension          | Content                                   |
-| ------------------ | ----------------------------------------- |
-| Facts              | Actual state of code/config/data          |
-| Data Flow          | Source → processing → destination         |
-| Interface/Contract | Current interface vs §0 contract          |
-| Gate Coverage      | Existing tests/CI for this area           |
-| Deviation          | ⚠️ Drift from §0 (or ✅ compliant)         |
+| Dimension          | Content                               |
+| ------------------ | ------------------------------------- |
+| Facts              | Actual state of code/config/data      |
+| Data Flow          | Source → processing → destination   |
+| Interface/Contract | Current interface vs §0 contract     |
+| Gate Coverage      | Existing tests/CI for this area       |
+| Deviation          | ⚠️ Drift from §0 (or ✅ compliant) |
 
 Template: [investigation-template.md](assets/investigation-template.md)
 
@@ -159,15 +159,16 @@ Each B file in `execution/` is a **behavioral specification** with three zones:
 
 **Budget buckets** (mapped to plan structure):
 
-| Bucket | Scope | Default |
-|--------|-------|---------|
-| Static baseline | INDEX + CURRENT (index segments/tables) + tracker active rows | Always included |
-| Dynamic reads | Current B + its frontmatter pointers (prerequisites/impact_refs/related_investigations) | On-demand |
-| Tool / logs | Docx outline, Jules/INV report summaries | On-demand |
-| History | `history/*` | **0** — only on explicit regression/backtrace trigger |
-| Reserved buffer | Space for unexpected findings / new evidence | Never pre-fill |
+| Bucket          | Scope                                                                                   | Default                                                      |
+| --------------- | --------------------------------------------------------------------------------------- | ------------------------------------------------------------ |
+| Static baseline | INDEX + CURRENT (index segments/tables) + tracker active rows                           | Always included                                              |
+| Dynamic reads   | Current B + its frontmatter pointers (prerequisites/impact_refs/related_investigations) | On-demand                                                    |
+| Tool / logs     | Docx outline, Jules/INV report summaries                                                | On-demand                                                    |
+| History         | `history/*`                                                                           | **0** — only on explicit regression/backtrace trigger |
+| Reserved buffer | Space for unexpected findings / new evidence                                            | Never pre-fill                                               |
 
 **Proxy budget limits** (v1 — item count, not tokens):
+
 - Per-B dynamic deep-reads: **≤ 8** (excluding static baseline)
 - INV deep-reads per B: **≤ 2** (others → ≤3 lines summary + RefSpec)
 - P* anchor deep-reads per B: **≤ 3** (excess → merge into P* first, then reference)
@@ -207,11 +208,13 @@ Long documents suffer from **lost-in-the-middle** — recall drops 10–40% for 
 **Plan artifact** = CURRENT.md (Head + Tail Anchors) + tracker active rows. All other files (B/INV/P) are detail carriers, not the plan itself.
 
 **Recitation cadence** — recite at these points:
+
 1. Before starting each Batch (after opening B file)
 2. Before any deep-read, major change, or CURRENT write-back
 3. After completing a gate transition (e.g. READY → EXECUTING)
 
 **Recitation content** (≤7 lines, from CURRENT Head Anchor + trackers):
+
 - Goal / Status / Active IDs / Next 3 actions / Hard constraints / Links
 
 **Drift fix**: If recitation reveals mismatch (goal/constraints/IDs differ from current work) → update CURRENT Head/Tail Anchors + tracker first, then resume execution.
@@ -256,8 +259,8 @@ Long documents suffer from **lost-in-the-middle** — recall drops 10–40% for 
 
 ### E — Execution handoff
 
-| Method           | Skill                         | When                         |
-| ---------------- | ----------------------------- | ---------------------------- |
+| Method           | Skill                           | When                         |
+| ---------------- | ------------------------------- | ---------------------------- |
 | PDCA cycle       | `/pdca` workflow              | Standard development         |
 | Subagent         | `subagent-driven-development` | Same-session batch execution |
 | Parallel session | `executing-plans`             | Independent session          |
@@ -304,14 +307,17 @@ plan-doc-editor (this skill)
 ## Bundled Resources
 
 ### Scripts
+
 - **scripts/init_plan_skill.py** — initialize plan module skeleton
 - **scripts/docx_outline.py** — extract DOCX heading outline. **Rule**: When the source plan is a long `.docx`, run this script first to get the heading structure, then decide which sections to deep-read. Never load the full DOCX into context.
 - **scripts/split_plan_with_markers.py** — split Markdown by `<!-- FILE: ... -->` markers
 
 ### References
+
 - **references/plan-skill-structure.md** — ID conventions, naming, status enums, cross-reference protocol
 
 ### Assets
+
 - **assets/plan-template.md** — CURRENT.md template
 - **assets/batch-template.md** — B file template
 - **assets/investigation-template.md** — INV report template

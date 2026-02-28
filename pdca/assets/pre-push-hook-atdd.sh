@@ -21,6 +21,8 @@ fi
 
 echo "=== Run ATDD Tests ==="
 echo "Command: $ATDD_TEST_CMD"
+# Clean stale JUnit to prevent zombie-XML false positives
+rm -f "$ATDD_JUNIT_PATH"
 # shellcheck disable=SC2086
 if ! bash -lc "$ATDD_TEST_CMD"; then
   echo "ATDD tests failed." >&2

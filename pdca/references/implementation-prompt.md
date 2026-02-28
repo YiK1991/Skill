@@ -277,11 +277,11 @@ Before each change batch, produce an **Architecture Lock** (copy the template if
   - **Stale result cleanup:** Before running tests, always delete stale JUnit files: `rm -f "$ATDD_JUNIT_PATH"` (or equivalent on Windows). Then run `$ATDD_TEST_CMD` to regenerate fresh results.
   - **Tick side-effect:** If you run `--tick` (non-dry-run), it modifies `TEST_PLAN.md`. Always `git add TEST_PLAN.md` and include it in the commit. Run `git status --porcelain` before committing to detect gate side-effects.
 
-### 3) Self-repair loop (≤5 rounds) with stop conditions
+### 3) Self-repair loop (≤3 rounds) with stop conditions
 When tests fail:
-- Output `Round N/5` log with failing cases, root cause, file changes, rerun result.
+- Output `Round N/3` log with failing cases, root cause, file changes, rerun result.
 - If **two rounds** show no progress due to wrong approach/assumption: stop and trigger Change Control.
-- If N reaches 5: stop and request human decision.
+- If N reaches 3: stop and request human decision.
 
 ### 4) Change Control (reframing / 换题)
 If you discover the plan is wrong or requirements shifted:

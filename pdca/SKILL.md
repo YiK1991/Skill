@@ -1,6 +1,6 @@
 ---
 name: pdca-ai-coding
-description: Structured Plan-Do-Check-Act framework for AI code generation. Use when implementing features, adding functionality, refactoring code, or any coding task that benefits from test-driven development, quality assurance, and continuous improvement. Prevents code quality issues, reduces debugging time, and maintains architectural consistency through structured prompts and human-AI collaboration.
+description: Structured Plan-Do-Check-Act, PDCA, framework for AI code generation. Use when implementing features, adding functionality, refactoring code, or any coding task that benefits from test-driven development, quality assurance, and continuous improvement. Prevents code quality issues, reduces debugging time, and maintains architectural consistency through structured prompts and human-AI collaboration.
 ---
 # PDCA AI Coding Framework
 
@@ -93,7 +93,7 @@ Enable this overlay **by default for most coding work** (features, refactors, no
 
 Skip only when explicitly declared: `ATDD_OVERLAY=off (reason: prototype/trivial/no-behavior-change)`.
 
-**Chain:** Plan → Same-name tests → Gate A → Strict TDD → ≤5 self-repair → Gate B (JUnit) → Architecture lock → Gate D (Docs)
+**Chain:** Plan → Same-name tests → Gate A → Strict TDD → ≤3 self-repair → Gate B (JUnit) → Architecture lock → Gate D (Docs)
 
 **Gates (stdout `true/false`, stderr diagnostics):**
 
