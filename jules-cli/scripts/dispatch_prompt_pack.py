@@ -1,15 +1,17 @@
 #!/usr/bin/env python3
 """Dispatch a Prompt Pack (tasks/*.md) via jules_bridge.
 
-Three hard gates block submission before any API call is made:
+Gates block submission before any API call is made:
 
-  GATE-1 (Status Filter): Only tasks marked `pending` in PACK.md are submitted.
-  GATE-2 (ASCII Path):    Non-ASCII paths are copied to a temp dir automatically.
-  GATE-2b (Hydration):    {{ HYDRATE: path:Lx-Ly }} macros are replaced with file content.
-  GATE-3 (Smoke Test):    The first task is submitted alone; if it fails, the batch aborts.
-  GATE-4 (Batch Limit):   Batch size is capped (default 10) to prevent accidental mass submit.
-  GATE-6 (Branch Check):  Verifies the starting branch exists on the remote.
-  GATE-7 (Governance):    Each task file must contain Governance Capsule + Document Placement.
+  GATE-1    (Status Filter):  Only tasks marked `pending` in PACK.md are submitted.
+  GATE-UTF8 (Encoding):       All pack/task files must be strict UTF-8 (BOM auto-stripped).
+  GATE-2    (ASCII Path):     Non-ASCII paths -> temp dir; basenames renamed to ASCII-safe.
+  GATE-2b   (Hydration):      {{ HYDRATE: path:Lx-Ly }} macros replaced (strict UTF-8).
+  GATE-4    (Batch Limit):    Batch size capped (default 10).
+  GATE-6    (Branch Check):   Verifies starting branch exists on remote.
+  GATE-7    (Governance):     Each task must have Governance Capsule + Document Placement.
+  GATE-FFFD (Integrity):      Reject prompts containing U+FFFD (silent corruption indicator).
+  GATE-3    (Smoke Test):     First task submitted alone; failure aborts batch.
 
 See jules-cli/references/operational-pitfalls.md for the full pitfall catalog.
 """
@@ -119,6 +121,53 @@ def filter_task_files(tasks_dir: str, pending_ids: Set[str]) -> List[str]:
     return matched
 
 
+# ========================== GATE-UTF8: Strict Encoding Enforcement =================
+
+
+def ensure_utf8_strict(pack_dir: str, task_files: List[str]) -> List[str]:
+    """Verify all pack/task files are valid UTF-8. Strip BOM if present.
+
+    Returns the (potentially BOM-stripped) list of file paths.
+    Raises SystemExit if any file is not valid UTF-8.
+    """
+    files_to_check = list(task_files)
+    pack_md = os.path.join(pack_dir, "PACK.md")
+    if os.path.isfile(pack_md) and pack_md not in files_to_check:
+        files_to_check.insert(0, pack_md)
+
+    failures = []
+    for fpath in files_to_check:
+        try:
+            raw = open(fpath, "rb").read()
+        except OSError as exc:
+            failures.append(f"  {fpath}: cannot read ({exc})")
+            continue
+
+        # Strip UTF-8 BOM if present
+        if raw.startswith(b"\xef\xbb\xbf"):
+            raw = raw[3:]
+            with open(fpath, "wb") as f:
+                f.write(raw)
+            eprint(f"  BOM stripped: {os.path.basename(fpath)}")
+
+        try:
+            raw.decode("utf-8", errors="strict")
+        except UnicodeDecodeError as exc:
+            failures.append(
+                f"  {os.path.basename(fpath)}: not valid UTF-8 at byte {exc.start}"
+            )
+
+    if failures:
+        raise SystemExit(
+            "GATE-UTF8 BLOCKED: Non-UTF-8 files detected\n"
+            "\n" + "\n".join(failures) + "\n\n"
+            "Fix: Re-save files as UTF-8 (no BOM). On Windows: "
+            "chcp 65001 then re-create the file."
+        )
+    eprint(f"GATE-UTF8 PASSED: {len(files_to_check)} files are valid UTF-8")
+    return task_files
+
+
 # ========================== GATE-2: ASCII Path Enforcement ==========================
 
 
@@ -134,6 +183,8 @@ def is_ascii_safe(path: str) -> bool:
 def ensure_ascii_paths(task_files: List[str]) -> List[str]:
     """If any task file path has non-ASCII chars, copy ALL to an ASCII-safe temp dir.
 
+    Basenames are renamed to ASCII-safe names (TASK-ID prefix or TASK-NNN fallback)
+    to avoid the 'copied but still non-ASCII filename' problem.
     Returns the (potentially relocated) list of file paths.
     """
     if all(is_ascii_safe(f) for f in task_files):
@@ -146,11 +197,20 @@ def ensure_ascii_paths(task_files: List[str]) -> List[str]:
         shutil.rmtree(temp_dir)
     os.makedirs(temp_dir)
 
+    _task_id_re = re.compile(r"(TASK-\d+)")
     relocated: List[str] = []
-    for src in task_files:
-        fname = os.path.basename(src)
-        dst = os.path.join(temp_dir, fname)
+    for i, src in enumerate(task_files):
+        orig_name = os.path.basename(src)
+        if is_ascii_safe(orig_name):
+            safe_name = orig_name
+        else:
+            m = _task_id_re.search(orig_name)
+            ext = os.path.splitext(orig_name)[1] or ".md"
+            safe_name = f"{m.group(1)}{ext}" if m else f"TASK-{i:03d}{ext}"
+        dst = os.path.join(temp_dir, safe_name)
         shutil.copy2(src, dst)
+        if safe_name != orig_name:
+            eprint(f"  Renamed: {orig_name} -> {safe_name}")
         relocated.append(dst)
 
     eprint(
@@ -173,9 +233,9 @@ def _read_hydrate_target(raw_path: str, start, end) -> str:
     if not os.path.isfile(path):
         return f"<!-- HYDRATE ERROR: file not found: {path} -->"
     try:
-        with open(path, encoding="utf-8", errors="replace") as f:
+        with open(path, encoding="utf-8") as f:
             lines = f.readlines()
-    except OSError as exc:
+    except (OSError, UnicodeDecodeError) as exc:
         return f"<!-- HYDRATE ERROR: {exc} -->"
 
     if start is not None and end is not None:
@@ -196,7 +256,7 @@ def hydrate_prompt_files(task_files: List[str]) -> List[str]:
     """
     total_hydrated = 0
     for tf in task_files:
-        with open(tf, encoding="utf-8", errors="replace") as f:
+        with open(tf, encoding="utf-8") as f:
             content = f.read()
 
         if "HYDRATE:" not in content:
@@ -217,6 +277,35 @@ def hydrate_prompt_files(task_files: List[str]) -> List[str]:
     if total_hydrated:
         eprint(f"GATE-2b PASSED: Hydrated {total_hydrated} macro(s) across task files")
     return task_files
+
+
+# ========================== GATE-FFFD: Replacement Character Check ================
+
+
+def check_no_replacement_chars(task_files: List[str]) -> None:
+    """Scan all task files for U+FFFD (replacement character).
+
+    If found, it means some gate silently corrupted content.
+    Raises SystemExit with diagnostics.
+    """
+    failures = []
+    for tf in task_files:
+        content = open(tf, encoding="utf-8").read()
+        if "\ufffd" in content:
+            # Find first occurrence line number
+            for i, line in enumerate(content.splitlines(), 1):
+                if "\ufffd" in line:
+                    failures.append(f"  {os.path.basename(tf)}:L{i}: contains U+FFFD")
+                    break
+    if failures:
+        raise SystemExit(
+            "GATE-FFFD BLOCKED: Unicode replacement character detected\n"
+            "This means a file was silently corrupted somewhere in the pipeline.\n"
+            "\n" + "\n".join(failures) + "\n\n"
+            "Fix: Check source files for encoding issues. "
+            "Re-save as UTF-8 and re-run."
+        )
+    eprint(f"GATE-FFFD PASSED: No replacement characters in {len(task_files)} files")
 
 
 # ========================== GATE-3: Smoke Test ==========================
@@ -262,7 +351,7 @@ def run_bridge(cmd: List[str]) -> Dict[str, Any]:
         capture_output=True,
         text=True,
         encoding="utf-8",
-        errors="replace",
+        errors="strict",
         env=env,
     )
     if p.returncode != 0:
@@ -380,6 +469,9 @@ def main() -> None:
         f"GATE-4 PASSED: {len(task_files)} tasks within batch limit of {args.max_batch}"
     )
 
+    # ---- GATE-UTF8: Strict encoding check (before any file processing) ----
+    task_files = ensure_utf8_strict(args.pack_dir, task_files)
+
     # ---- GATE-2: Ensure ASCII-safe paths ----
     task_files = ensure_ascii_paths(task_files)
 
@@ -434,8 +526,8 @@ def main() -> None:
     gate7_failures = []
     for tf in task_files:
         try:
-            content = open(tf, encoding="utf-8", errors="replace").read()
-        except OSError:
+            content = open(tf, encoding="utf-8").read()
+        except (OSError, UnicodeDecodeError):
             gate7_failures.append(f"  {os.path.basename(tf)}: cannot read file")
             continue
         missing = []
@@ -457,6 +549,9 @@ def main() -> None:
     eprint(
         f"GATE-7 PASSED: All {len(task_files)} tasks have Governance Capsule + Placement"
     )
+
+    # ---- GATE-FFFD: Reject if any replacement chars leaked through ----
+    check_no_replacement_chars(task_files)
 
     bridge_py = os.path.join(os.path.dirname(__file__), "jules_bridge.py")
 

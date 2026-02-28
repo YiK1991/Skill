@@ -15,29 +15,29 @@ PowerShell on Windows uses the system code page (GBK/CP936) when piping stdin to
 Even with `[Console]::OutputEncoding = [System.Text.Encoding]::UTF8`, the pipe between
 PowerShell and `jules.cmd` uses the system locale encoding, silently converting non-ASCII to `?`.
 
-### Fix: Write English-Only Prompts
+### Fix: Ensure UTF-8 Transport (CJK Allowed)
 
-The most reliable solution: **write all Jules prompts in English**.
+**CJK content is allowed in prompts.** The dispatch script handles encoding automatically:
 
-- Jules reads code (which is in English) — Chinese instructions add no value
-- All file paths, variable names, and constraints in English avoid any encoding risk
-- Chinese comments in task descriptions can be translated to English without loss of meaning
-- Output placement rules (`agent-outputs/{id}__jules.md`) are ASCII-safe
+1. **GATE-UTF8** validates all task files are strict UTF-8 (BOM auto-stripped)
+2. **GATE-2a** renames non-ASCII filenames to ASCII-safe basenames
+3. **GATE-FFFD** scans for replacement characters before submission
+4. **run_bridge** uses Python `encoding="utf-8", errors="strict"` — no silent corruption
 
-### Fix: If CJK Is Absolutely Required
+**Mandatory**: Always submit via `dispatch_prompt_pack.py` (H4). Never pipe through PowerShell directly.
 
-1. Write the prompt to a temp file (UTF-8, no BOM):
-   ```python
-   content = open(prompt_path, encoding="utf-8").read()
-   temp = "C:\\temp\\task_prompt.md"
-   with open(temp, "w", encoding="utf-8") as f:
-       f.write(content)
-   ```
-2. Use `cmd /c` with `chcp 65001` to pipe the file:
+**Control-plane identifiers MUST remain ASCII**: task_id, file paths, section anchors
+(`## Governance Capsule`, `## Document Placement`).
+
+### Legacy: Manual `cmd/chcp65001` Workaround
+
+> This is automated by the dispatch script. Listed for reference only.
+
+1. Write the prompt to a temp file (UTF-8, no BOM)
+2. Use `cmd /c` with `chcp 65001` to pipe:
    ```powershell
    cmd /c "chcp 65001 >nul && type C:\temp\task_prompt.md | jules remote new --repo owner/repo"
    ```
-3. Verify: Check the created session on `jules.google.com` — confirm CJK text is intact.
 
 ### Anti-Pattern
 ```powershell
@@ -46,6 +46,9 @@ Get-Content prompt.md | jules remote new --repo owner/repo
 
 # ❌ WRONG: Python subprocess without shell=True can't find jules.cmd
 subprocess.run(["jules", "remote", "new", ...], input=prompt)
+
+# ❌ WRONG: open() with errors="replace" — silently corrupts content
+open(path, encoding="utf-8", errors="replace").read()
 ```
 
 ---

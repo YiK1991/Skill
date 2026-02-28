@@ -29,7 +29,7 @@ Submit asynchronous tasks to Jules, track status, review results via PR, and ite
 
 | #  | Check | Rule | Pitfall |
 |----|-------|------|---------|
-| H1 | **Prompt language** | Entire prompt file MUST be **English-only**. Zero CJK characters. | P1: Windows GBK pipe corrupts CJK → Jules receives `???` → FAILED |
+| H1 | **Encoding & language** | Prompt file MUST be **UTF-8**. CJK allowed in body. Control-plane ids (task_id, paths, section anchors like `## Governance Capsule`) MUST be ASCII. | P1: dispatch script auto-handles UTF-8 transport; GATE-UTF8 validates |
 | H2 | **`--starting-branch`** | MUST specify `--starting-branch master` (this repo uses `master`, NOT `main`) | P11: Default `main` → `fatal: branch not found` → FAILED |
 | H3 | **Prompt Envelope** | MUST use the correct template from `references/prompt-envelope-review.md` (for review) or `references/prompt-envelope-implement.md` (for implement). Copy the template structure verbatim. | No envelope → Jules cannot parse intent → FAILED |
 | H4 | **Dispatch method** | MUST use `dispatch_prompt_pack.py` for submission. NEVER call `jules_bridge.py submit` directly. | P11: Manual calls bypass GATE-6 branch validation → silent FAILED |
@@ -46,7 +46,7 @@ Before running any dispatch command, output this XML block to force token-by-tok
 
 ```xml
 <PreFlight_Check>
-  <H1>Confirmed: Prompt is 100% English, zero CJK</H1>
+  <H1>Confirmed: Prompt is UTF-8; control-plane ids are ASCII</H1>
   <H2>Confirmed: --starting-branch master specified</H2>
   <H3>Confirmed: Using correct envelope template (review/implement)</H3>
   <H4>Confirmed: Using dispatch_prompt_pack.py, NOT jules_bridge.py</H4>
@@ -63,7 +63,7 @@ Before running any dispatch command, output this XML block to force token-by-tok
 
 For submitting ONE task (the most common case):
 
-### Step 1: Write the prompt file (English only)
+### Step 1: Write the prompt file (UTF-8; CJK allowed)
 
 Read the appropriate template FIRST:
 - Review/research task → `view_file` on `references/prompt-envelope-review.md`
