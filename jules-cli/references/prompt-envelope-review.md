@@ -96,21 +96,24 @@
 - [ ] **README**：模块是否有 README 或说明文件？
 - [ ] **注释质量**：注释是否解释了"为什么"而不是"什么"？
 
-## 4) 报告放置规则
-审查报告必须放在指定位置：
-- 先查看 `00_Documentation/` 的现有目录结构
-- 默认路径：`00_Documentation/99_Inbox/<模块>/<日期>_<主题>/review_report.md`
-- 如果是 Prompt Pack 的一部分：`jules_pack/results/TASK-XXX_review.md`
-- 日志证据：`08_System_Maintenance/Logs/`
+## Document Placement (MANDATORY)
+
+审查报告必须放在 orchestrator 指定的位置（遵循 Gate-J 回流路径）：
+
+- **plan-doc-editor 场景（默认）**：`<plan_module>/investigation/INV-*_jules_review.md`
+  - 多文件输出时：`<plan_module>/investigation/TASK-XXX_INDEX.md` + 拆分文件
+  - 此路径让 plan-doc-editor Workflow C 可自动 intake
+- **非 plan 模块场景**：`jules_pack/results/TASK-XXX_review.md`
+- **快照覆写**：如果 Prompt 指定了 `@Snapshot_xxx.md`，覆写该文件而非新建
+- **日志证据**：offload 到 `investigation/tool_outputs/` 或 `results/`
+- **禁止**在与现有结构不一致的位置创建新目录
 - **多文件输出（默认策略）**：当 scope 涉及多维（事实+风险+统计），**必须**输出拆分文件：
   - `.../TASK-XXX_INDEX.md`（仅索引 + Head Anchor）
   - `.../F-XXX_facts.md`（事实与数据流）
   - `.../R-XXX_risks.md`（风险与建议）
   单维审查可输出单文件，但仍须包含 PD-OUT v1 结构（§5）。
-- **快照覆写**：如果 Prompt 指定了 `@Snapshot_xxx.md`，覆写该文件而非新建
-- **禁止**在与现有结构不一致的位置创建新目录
 
-> **双写硬规则（Anti-drift）**：输出路径/放置规则必须在 prompt 的 **header（§0 Meta 或 §1 Objective）** 与 **此处 §4** 两处重复声明。Jules 是盲跑 worker，单次声明极易遗漏。
+> **双写硬规则（Anti-drift）**：输出路径/放置规则必须在 prompt 的 **header（§0 Meta 或 §1 Objective）** 与 **此处** 两处重复声明。Jules 是盲跑 worker，单次声明极易遗漏。
 
 ## 4.5) Governance Capsule (MANDATORY)
 

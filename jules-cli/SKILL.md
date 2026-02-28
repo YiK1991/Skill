@@ -30,10 +30,10 @@ Submit asynchronous tasks to Jules, track status, review results via PR, and ite
 | #  | Check | Rule | Pitfall |
 |----|-------|------|---------|
 | H1 | **Encoding & language** | Prompt file MUST be **UTF-8**. CJK allowed in body. Control-plane ids (task_id, paths, section anchors like `## Governance Capsule`) MUST be ASCII. | P1: dispatch script auto-handles UTF-8 transport; GATE-UTF8 validates |
-| H2 | **`--starting-branch`** | MUST specify `--starting-branch master` (this repo uses `master`, NOT `main`) | P11: Default `main` → `fatal: branch not found` → FAILED |
+| H2 | **`--starting-branch`** | MUST specify `--starting-branch` explicitly (e.g. `master`). Do NOT assume `main`; GATE-6 will verify the branch exists on remote. | P11: Undetectable default → `fatal: branch not found` → FAILED |
 | H3 | **Prompt Envelope** | MUST use the correct template from `references/prompt-envelope-review.md` (for review) or `references/prompt-envelope-implement.md` (for implement). Copy the template structure verbatim. | No envelope → Jules cannot parse intent → FAILED |
 | H4 | **Dispatch method** | MUST use `dispatch_prompt_pack.py` for submission. NEVER call `jules_bridge.py submit` directly. | P11: Manual calls bypass GATE-6 branch validation → silent FAILED |
-| H5 | **ASCII file path** | Task file and pack directory MUST be on an ASCII-only path (e.g. `C:\temp\jules_tasks\`). Copy files there first if source path contains CJK. | P3: Chinese paths → garbled in subprocess → FAILED |
+| H5 | **ASCII-safe path** | Source paths with CJK are allowed — dispatch auto-copies to ASCII-safe temp (GATE-2). For reliability, prefer ASCII pack-dir/filenames. | P3: Non-ASCII paths handled by GATE-2; manual copy no longer required |
 | H6 | **Output path declaration** | Prompt MUST include Document Placement block specifying allowed output paths. Multiple files are allowed within declared paths. | P6: Jules creates files outside declared paths → PR rejection |
 | H7 | **Governance Capsule** | Prompt MUST include `## Governance Capsule (MANDATORY)` section with Authority chain, Output Contract fields, and Stop Conditions (§4.5 in templates). | P13: Monolithic output without PD structure → unprocessable |
 
@@ -47,10 +47,10 @@ Before running any dispatch command, output this XML block to force token-by-tok
 ```xml
 <PreFlight_Check>
   <H1>Confirmed: Prompt is UTF-8; control-plane ids are ASCII</H1>
-  <H2>Confirmed: --starting-branch master specified</H2>
+  <H2>Confirmed: --starting-branch specified explicitly (GATE-6 will verify)</H2>
   <H3>Confirmed: Using correct envelope template (review/implement)</H3>
   <H4>Confirmed: Using dispatch_prompt_pack.py, NOT jules_bridge.py</H4>
-  <H5>Confirmed: All paths are ASCII-safe</H5>
+  <H5>Confirmed: Source paths acceptable (GATE-2 handles ASCII conversion)</H5>
   <H6>Confirmed: Document Placement block included in prompt</H6>
   <H7>Confirmed: Governance Capsule included</H7>
 </PreFlight_Check>
