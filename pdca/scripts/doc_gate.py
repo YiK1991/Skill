@@ -41,6 +41,7 @@ _TTL_SEC = int(os.environ.get("PDCA_GATE_TTL_SEC", "1800"))
 def _error_signature(errors: List[str]) -> str:
     """Deterministic hash of error messages to detect same-root-cause."""
     content = "\n".join(sorted(errors))
+    content = re.sub(r"\s@\sL\d+:", " @ L_XX:", content)
     return hashlib.sha256(content.encode()).hexdigest()[:12]
 
 
@@ -73,8 +74,12 @@ def _finalize_gate(
     if passed:
         if _MAX_RETRIES > 0:
             state = _load_breaker_state()
-            state.pop(gate_name, None)
-            _save_breaker_state(state)
+            if gate_name in state:
+                del state[gate_name]
+                if state:
+                    _save_breaker_state(state)
+                elif _STATE_PATH.exists():
+                    _STATE_PATH.unlink()
         sys.stdout.write("true\n")
         return 0
 

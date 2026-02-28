@@ -60,6 +60,9 @@ _TTL_SEC = int(os.environ.get("PDCA_GATE_TTL_SEC", "1800"))
 def _error_signature(errors: List[str]) -> str:
     """Deterministic hash of error messages to detect same-root-cause."""
     content = "\n".join(sorted(errors))
+    # Strip line-number noise (e.g. "@ L45:" → "@ L_XX:") so plan edits
+    # that only shift line numbers don't reset the breaker counter.
+    content = re.sub(r"\s@\sL\d+:", " @ L_XX:", content)
     return hashlib.sha256(content.encode()).hexdigest()[:12]
 
 
@@ -93,8 +96,12 @@ def _finalize_gate(
         # Reset breaker on success
         if _MAX_RETRIES > 0:
             state = _load_breaker_state()
-            state.pop(gate_name, None)
-            _save_breaker_state(state)
+            if gate_name in state:
+                del state[gate_name]
+                if state:
+                    _save_breaker_state(state)
+                elif _STATE_PATH.exists():
+                    _STATE_PATH.unlink()
         sys.stdout.write("true\n")
         return 0
 
@@ -742,9 +749,12 @@ def main() -> int:
 
     plan_path = Path(args.plan)
     if not plan_path.exists():
-        print(f"[ERROR] Plan file not found: {plan_path}", file=sys.stderr)
-        sys.stdout.write("false\n")
-        return 1
+        return _finalize_gate(
+            "gate_init",
+            False,
+            [f"[ERROR] Plan file not found: {plan_path}"],
+            env_error=True,
+        )
 
     plan_items = read_plan_items(plan_path)
     tests_root = Path(args.tests_root)
@@ -792,10 +802,13 @@ def main() -> int:
             base_items = read_plan_from_git(args.base, args.plan)
             if not base_items:
                 msg = f"[ERROR] Failed to read plan from git base: {args.base}"
-                print(msg, file=sys.stderr)
                 if args.strict:
-                    sys.stdout.write("false\n")
-                    return 1
+                    return _finalize_gate(
+                        "gate_c",
+                        False,
+                        [msg],
+                        env_error=True,
+                    )
 
         if (not base_items) and args.base_plan:
             bp = Path(args.base_plan)
@@ -805,9 +818,12 @@ def main() -> int:
                 print(f"[ERROR] Base plan not found: {bp}", file=sys.stderr)
 
         if not base_items:
-            print("[ERROR] Gate C requires --base or --base-plan", file=sys.stderr)
-            sys.stdout.write("false\n")
-            return 1
+            return _finalize_gate(
+                "gate_c",
+                False,
+                ["[ERROR] Gate C requires --base or --base-plan"],
+                env_error=True,
+            )
 
         passed, errors = gate_c_audit(plan_items, base_items)
         return _finalize_gate("gate_c", passed, errors)
@@ -818,8 +834,9 @@ def main() -> int:
         return _finalize_gate(
             "gate_b",
             False,
-            [f"[ERROR] JUnit XML not found: {junit_path}"],
-            env_error=True,
+            [
+                f"[ERROR] JUnit XML not found: {junit_path}. Did the tests fail to compile or run?"
+            ],
         )
 
     try:

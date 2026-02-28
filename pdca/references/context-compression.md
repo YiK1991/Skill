@@ -66,8 +66,10 @@ Context compression must never destroy contract information needed for correct r
 
 ```
 def calculate_forecast(series: TimeSeries, horizon: int) -> TimeSeries:
-    # Applies TFT model with covariates, returns n-step forecast.
-    # ~45 lines: preprocessing → model.predict → post-processing
+    """Applies TFT model with covariates. (~45 lines folded)
+    preprocessing → model.predict → post-processing
+    """
+    ...
 ```
 
 ## Anti-patterns
