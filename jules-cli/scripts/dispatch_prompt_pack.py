@@ -170,6 +170,66 @@ def ensure_ascii_paths(task_files: List[str]) -> List[str]:
     return relocated
 
 
+# ========================== GATE-2b: JIT Context Hydration ==========================
+
+
+_HYDRATE_RE = re.compile(
+    r"\{\{\s*HYDRATE:\s*(?P<path>[^:}]+?)(?::L(?P<start>\d+)-L?(?P<end>\d+))?\s*\}\}"
+)
+
+
+def _read_hydrate_target(raw_path: str, start, end) -> str:
+    """Read file content for a HYDRATE macro. Returns replacement text or error comment."""
+    path = raw_path.strip()
+    if not os.path.isfile(path):
+        return f"<!-- HYDRATE ERROR: file not found: {path} -->"
+    try:
+        with open(path, encoding="utf-8", errors="replace") as f:
+            lines = f.readlines()
+    except OSError as exc:
+        return f"<!-- HYDRATE ERROR: {exc} -->"
+
+    if start is not None and end is not None:
+        selected = lines[max(0, int(start) - 1) : int(end)]
+    else:
+        selected = lines
+
+    content = "".join(selected).rstrip()
+    label = f"{path}:L{start}-L{end}" if start else path
+    return f"```\n# Source: {label}\n{content}\n```"
+
+
+def hydrate_prompt_files(task_files: List[str]) -> List[str]:
+    """Scan task files for {{ HYDRATE: path:Lx-Ly }} macros and replace with content.
+
+    Files are modified in-place (they should already be temp copies from GATE-2).
+    Returns the same list. If no macros found, files are untouched.
+    """
+    total_hydrated = 0
+    for tf in task_files:
+        with open(tf, encoding="utf-8", errors="replace") as f:
+            content = f.read()
+
+        if "HYDRATE:" not in content:
+            continue
+
+        def _replacer(m: re.Match) -> str:
+            s = int(m.group("start")) if m.group("start") else None
+            e = int(m.group("end")) if m.group("end") else None
+            return _read_hydrate_target(m.group("path"), s, e)
+
+        new_content = _HYDRATE_RE.sub(_replacer, content)
+        if new_content != content:
+            count = len(_HYDRATE_RE.findall(content))
+            with open(tf, "w", encoding="utf-8") as f:
+                f.write(new_content)
+            total_hydrated += count
+
+    if total_hydrated:
+        eprint(f"GATE-2b PASSED: Hydrated {total_hydrated} macro(s) across task files")
+    return task_files
+
+
 # ========================== GATE-3: Smoke Test ==========================
 
 
@@ -333,6 +393,9 @@ def main() -> None:
 
     # ---- GATE-2: Ensure ASCII-safe paths ----
     task_files = ensure_ascii_paths(task_files)
+
+    # ---- GATE-2b: Hydrate {{ HYDRATE: ... }} macros ----
+    task_files = hydrate_prompt_files(task_files)
 
     # ---- GATE-6: Verify remote branch exists ----
     repo = args.repo
