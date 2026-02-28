@@ -242,10 +242,12 @@ Include a CAUTION block at the end of every task prompt:
 ```markdown
 ## Document Placement (MANDATORY — violations will cause PR rejection)
 
-1. **Only output path**: `00_Documentation/99_Inbox/<pack-dir>/agent-outputs/{task-id}__jules.md`
+1. **Only output path**: `<ORCHESTRATOR_PROVIDED_PATH>` (from PACK.md or task header)
+   - With plan module: `<plan_module>/investigation/INV-*_jules_review.md`
+   - Standalone: `jules_pack/results/TASK-XXX_review.md`
 2. **DO NOT create any new directories** (no `_governance/`, `Reviews/`, or anything not listed above)
 3. **DO NOT modify any source code files** (`.ts`, `.tsx`, `.py`) — this task is research only
-4. **All output goes into ONE markdown file** at the path above
+4. **All output goes into designated path(s)** above
 ```
 
 ### Key Constraint

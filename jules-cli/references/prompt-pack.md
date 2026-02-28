@@ -17,10 +17,12 @@
 
 ## 目录结构
 
-> 所有新资产必须先进入 `00_Documentation/99_Inbox/`。
+> 资产放置规则（条件式）：
+> - **有 plan module**：PACK 放在 `<plan_module>/jules_pack/`，results 回流到 `<plan_module>/investigation/`
+> - **Standalone**（无 plan module）：允许放在 `00_Documentation/99_Inbox/` 或自定义目录
 
 ```
-00_Documentation/99_Inbox/<module>/<YYYY-MM-DD>_<topic>/jules_pack/
+jules_pack/                           # ← 路径由 orchestrator 指定
 ├── PACK.md
 ├── tasks/
 │   ├── TASK-001_<slug>.md
@@ -38,7 +40,7 @@
 - `results/`：结果摘要（用于回流计划/设计）。
 - `followups/`：对某个 session 的追加消息（同一 session 内迭代）。
 
-> 注意：滚动日志不允许进入 `00_Documentation/`。如需留证，把精选日志放到 `08_System_Maintenance/Logs/`，并在 `results/` 中链接。
+> 注意：滚动日志不允许内联。如需留证，offload 到 `investigation/tool_outputs/` 或 `results/`，并在 results 中用 RefSpec 链接。
 
 ---
 
@@ -53,7 +55,8 @@
 - related plan module: <path/to/plan_module/>
 - conventions:
   - Project rules: `gemini.md`, `agent.md`, `rules.md`（Jules 执行每个 task 前必须先读取根目录及涉及模块下的规范文件）
-  - Output contract: `.agent/skills/pdca-ai-coding/references/output-contract.md`（字段名固定、RefSpec only）
+  - Output contract (Core): `.agent/skills/plan-doc-editor/references/integration-router.md`（统一输出字段 + 证据标准）
+  - PDCA extended fields: `.agent/skills/pdca-ai-coding/references/output-contract.md`（PDCA 附加字段）
   - Integration router: `.agent/skills/plan-doc-editor/references/integration-router.md`（统一路由、门禁映射、Gate-J）
   - Disclosure rule: `.agent/skills/jules-cli/references/plan-as-skill-integration.md`（披露式上下文、回流字段）
 - run_id: <RUN-ID>
@@ -75,7 +78,7 @@
 
 ---
 
-## results/ 文档模板（与 PDCA Output Contract 对齐）
+## results/ 文档模板（与 Core Worker Contract 对齐）
 
 ```markdown
 # TASK-XXX result
