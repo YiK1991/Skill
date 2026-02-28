@@ -88,17 +88,18 @@ P0: Baseline | P1: Design & contracts | P2: Implementation | P3: Verification | 
 2. **B files are hubs** — link to `investigation/INV-*` and `references/P*`; inline ≤3 lines summary.
 3. **Frontmatter `cross_refs`** — every B file declares `tracker`, `current`, `changelog` paths.
 
-### Anti-Bloat Rules
+### Demand-Based Extraction Rules (replaces line-count thresholds)
 
 | Signal                          | Remedy                                                    |
 | ------------------------------- | --------------------------------------------------------- |
-| B file >120 lines               | Extract to `references/` + summary link                   |
+| Non-executable content in Hub (B*/CURRENT) | Extract to `references/P*` + ≤3-line summary + RefSpec |
 | Same fact in ≥2 files           | Canonicalize into one, link from others                   |
 | INV findings pasted into B file | Replace with ≤3-line summary + `→ [INV-NNN](...)` link   |
 | Extracted Q / INV files         | Move to `history/` and mark `# ARCHIVED`                  |
-| Multi-dimension investigation   | Require Jules to output separate files (F-NNN, R-NNN)     |
-| CURRENT.md >150 lines           | Move deep content to `references/`; keep table + links    |
-| Tool/API/terminal output in chat or INV body | Offload to `investigation/tool_outputs/` + ≤3-line summary + RefSpec in INV Tool Outputs table |
+| Multi-dimension investigation   | Require separate files (F-NNN, R-NNN)                     |
+| Evidence in chat or INV body    | Offload to `investigation/tool_outputs/` + ≤3-line summary + RefSpec |
+| Missing PD navigability         | Add Head Anchor + Index table + stable `##` anchors       |
+| Cross-B content dependency (≥2 refs) | Canonicalize to `references/` with stable anchor     |
 
 ### Link Format (RefSpec)
 

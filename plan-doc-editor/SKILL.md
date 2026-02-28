@@ -144,13 +144,34 @@ Each B file in `execution/` is a **behavioral specification** with three zones:
    - Design change needed → STOP → update design → fallback status → log
 3. **Post-Completion Updates** — mandatory checklist linking tracker, CURRENT.md §1, change_log.md, impacted B files.
 
-### Anti-Bloat Rules
+### Demand-Based Extraction Protocol (replaces line-count rules)
 
-- `cross_refs` in frontmatter → explicit update targets
-- INV findings: ≤3 lines inline + link. Never paste full content.
-- Design specs: key points inline + link to `references/P*`.
-- B file >120 lines → extract to `references/` and link.
-- Tool/API/terminal outputs >2000 tokens or >100 lines → offload to `investigation/tool_outputs/`; keep ≤3-line summary + RefSpec only.
+**Document Roles** (determines extraction policy, not line counts):
+
+| Role | Files | Policy |
+|------|-------|--------|
+| **Hub** (executable) | `execution/B*`, `CURRENT.md` | Pointers-dense; body = only "next-step must-know". Background/specs → RefSpec to Canonical. |
+| **Canonical** (authoritative detail) | `references/P*`, `references/A*` | May be long and dense. Must be PD-navigable: Head Anchor + Index table + stable `##` anchors. |
+| **Evidence** (raw outputs) | `investigation/tool_outputs/*`, logs, traces | Never inline. Always offloaded + indexed via Tool Outputs table in INV. |
+
+**Semantic Triggers** (any one triggers extraction/offload — no line-count threshold):
+
+| Signal | Action |
+|--------|--------|
+| Non-executable content in Hub | Move to `references/P*`; Hub keeps ≤3-line summary + RefSpec |
+| Evidence pollution (tool/log/trace) | Offload to `investigation/tool_outputs/`; keep ≤3-line summary + RefSpec |
+| Same fact in ≥2 files | Canonicalize to one `references/P*` location; others → RefSpec |
+| Missing Index/anchors (not PD-navigable) | Add Head Anchor + Index table + `##` anchors before adding content |
+| Cross-B dependency (content referenced by ≥2 B files) | Canonicalize to `references/` |
+
+**Compression Safety Rules** (information must never be lost):
+
+- 100% preserve: IDs, Gate commands, DoD, acceptance criteria, rollback strategy, WHY/constraints, Files touched, Evidence pointers
+- Allowed to compress: background prose, long derivations, repeated paragraphs, long examples (offload)
+- Compressed text must retain RefSpec (information is "folded", not deleted)
+
+**Inline excerpt limit**: Code/output excerpts inline ≤60 lines (from PDCA); longer → offload + RefSpec.
+
 - Investigations must track temporal validity (valid_from/valid_until/status); see [investigation-temporal-validity.md](references/investigation-temporal-validity.md).
 - Entity consistency: use `references/A0_entity_registry.yaml`; see [entity-registry.md](references/entity-registry.md).
 - Investigation consolidation: archive/invalidate completed INVs; see [investigation-consolidation.md](references/investigation-consolidation.md).
@@ -290,7 +311,7 @@ Long documents suffer from **lost-in-the-middle** — recall drops 10–40% for 
 9. **Gate-driven** — state transitions require gate passage
 10. **Views-not-copies** — one source of truth, link references
 11. **Closed-loop** — batch completion requires updating tracker + CURRENT.md §1 + change_log.md
-12. **Link-first** — inline ≤3 lines; full detail one link away; B >120 lines → extract
+12. **Link-first** — inline ≤3 lines; full detail one link away; Hub files contain only executable/navigational content (non-executable → extract to Canonical)
 13. **Discovery-then-record** — unexpected issues → INV file + tracker + change_log; no silent fixes
 14. **PD two-pass** — Index Pass first (INDEX + CURRENT tables), Deep Pass only for registered items
 15. **Gate-J (Jules Review)** — B file DoD 含 `gate_j: required` 时，须在 DONE 前完成 Jules review PR 合并。产物：`investigation/INV-*_jules_review.md`。失败：回退为 blocked，写 Q-NNN 阻塞 tracker。
