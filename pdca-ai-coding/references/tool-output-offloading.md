@@ -8,7 +8,7 @@ If output is large (>2000 tokens OR >100 lines OR >50KB):
 1. Write full output to a file.
 2. Return only:
    - ≤10-line summary
-   - ≤80-line key excerpt (optional)
+   - ≤60-line key excerpt (optional)
    - RefSpec pointer to the stored file (+ line range if relevant)
 
 ## Naming convention (mandatory)
@@ -35,7 +35,7 @@ Required index columns:
 
 When you need evidence from an offloaded file:
 1. Use `grep`/`rg` + line ranges to pull only the needed fragment.
-2. Inline only the minimal excerpt (≤80 lines).
+2. Inline only the minimal excerpt (≤60 lines).
 3. Reference the rest via RefSpec pointer.
 
 > *Source*: `filesystem-context` — "Tool outputs can be extremely large… write the full result to a file and return only a summary with reference."

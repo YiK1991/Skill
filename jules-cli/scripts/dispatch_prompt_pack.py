@@ -29,7 +29,7 @@ import subprocess
 import sys
 import tempfile
 import time
-from typing import Any, Dict, List, Set
+from typing import Any, Dict, List, Set, Tuple
 
 # --------------- Encoding: force UTF-8 on Windows (GBK default) ---------------
 if sys.platform == "win32":
@@ -42,10 +42,11 @@ if sys.platform == "win32":
 # ========================== GATE-1: PACK.md Status Filter ==========================
 
 
-def parse_pending_tasks(pack_dir: str) -> Set[str]:
-    """Parse PACK.md and return set of task_ids whose status is 'pending'.
+def parse_pending_tasks(pack_dir: str) -> Tuple[List[str], Set[str]]:
+    """Parse PACK.md and return (ordered_list, set) of task_ids whose status is 'pending'.
 
-    Returns empty set if PACK.md is missing or has no task table.
+    The list preserves PACK.md row order (for deterministic smoke-test ordering).
+    Returns ([], set()) if PACK.md is missing or has no task table.
     Raises SystemExit if PACK.md exists but has zero pending tasks (safety).
     """
     pack_md = os.path.join(pack_dir, "PACK.md")
@@ -69,19 +70,22 @@ def parse_pending_tasks(pack_dir: str) -> Set[str]:
         )
 
     # Parse markdown table rows: | TASK-XXX | ... | pending | ...
-    pending: Set[str] = set()
+    pending_list: List[str] = []  # preserves PACK.md row order
+    pending_set: Set[str] = set()
     all_tasks: Set[str] = set()
     for line in content.splitlines():
         # Match table rows like: | TASK-017 | description | aspect | pending | ...
         m = re.match(r"\|\s*(TASK-[\w\-]+)\s*\|", line)
         if not m:
             continue
-        task_id = m.group(1)
+        task_id = m.group(1).upper()  # normalize to uppercase
         all_tasks.add(task_id)
         # Check if any cell in this row contains 'pending' (case-insensitive)
         cells = [c.strip().lower() for c in line.split("|")]
         if "pending" in cells:
-            pending.add(task_id)
+            if task_id not in pending_set:
+                pending_list.append(task_id)
+                pending_set.add(task_id)
 
     if not all_tasks:
         raise SystemExit(
@@ -89,14 +93,14 @@ def parse_pending_tasks(pack_dir: str) -> Set[str]:
             "Add tasks to the table before dispatching."
         )
 
-    if not pending:
+    if not pending_list:
         raise SystemExit(
             f"GATE-1 BLOCKED: PACK.md has {len(all_tasks)} tasks but NONE are 'pending'.\n"
             f"Found statuses: {', '.join(sorted(all_tasks))} — all non-pending.\n"
             "Mark tasks as 'pending' in PACK.md before dispatching."
         )
 
-    return pending
+    return pending_list, pending_set
 
 
 def filter_task_files(tasks_dir: str, pending_ids: Set[str]) -> List[str]:
@@ -148,13 +152,13 @@ _TASK_ID_RE = re.compile(r"(TASK-[\w-]+)", re.IGNORECASE)
 
 
 def extract_task_id_from_filename(fname: str) -> str | None:
-    """Extract the canonical (uppercased) TASK-XXX id from a filename."""
-    m = _TASK_ID_RE.search(os.path.basename(fname))
+    """Extract the canonical (uppercased) TASK-XXX id from filename prefix."""
+    m = _TASK_ID_RE.match(os.path.basename(fname))  # prefix match, not search
     return m.group(1).upper() if m else None
 
 
 def gate_fname_unique_mapping(
-    task_files: List[str], pending_ids: Set[str]
+    task_files: List[str], pending_list: List[str]
 ) -> Dict[str, str]:
     """Enforce 1:1 mapping: each pending task_id maps to exactly one file.
 
@@ -171,7 +175,7 @@ def gate_fname_unique_mapping(
     errors: List[str] = []
     mapping: Dict[str, str] = {}
 
-    for tid in sorted(pending_ids):
+    for tid in pending_list:  # preserves PACK.md row order
         tid_upper = tid.upper()
         matches = by_id.get(tid_upper, [])
         if len(matches) == 0:
@@ -215,23 +219,29 @@ def ensure_utf8_strict(pack_dir: str, task_files: List[str]) -> List[str]:
     failures = []
     for fpath in files_to_check:
         try:
-            raw = open(fpath, "rb").read()
+            with open(fpath, "rb") as fh:
+                raw = fh.read()
         except OSError as exc:
             failures.append(f"  {fpath}: cannot read ({exc})")
             continue
 
-        # Strip UTF-8 BOM if present
-        if raw.startswith(b"\xef\xbb\xbf"):
+        has_bom = raw.startswith(b"\xef\xbb\xbf")
+        if has_bom:
             raw = raw[3:]
-            with open(fpath, "wb") as f:
-                f.write(raw)
-            eprint(f"  BOM stripped: {os.path.basename(fpath)}")
 
         try:
             raw.decode("utf-8", errors="strict")
         except UnicodeDecodeError as exc:
             failures.append(
                 f"  {os.path.basename(fpath)}: not valid UTF-8 at byte {exc.start}"
+            )
+            continue
+
+        if has_bom:
+            # Only WARN; do NOT write back to original file (avoid repo dirty surprises)
+            # BOM will be stripped later when file is copied to temp dir (GATE-2)
+            eprint(
+                f"  BOM detected (will be stripped in temp copy): {os.path.basename(fpath)}"
             )
 
     if failures:
@@ -313,8 +323,20 @@ def _read_hydrate_target(raw_path: str, start, end) -> str:
     path = raw_path.strip()
     # Fallback: if relative path not found from cwd, try relative to pack-dir or repo root
     if not os.path.isfile(path) and not os.path.isabs(path):
-        # Try common base directories
-        for base in [os.environ.get("_JULES_PACK_DIR", ""), os.getcwd()]:
+        # Try common base directories: pack-dir, cwd, git repo root
+        repo_root = ""
+        try:
+            r = subprocess.run(
+                ["git", "rev-parse", "--show-toplevel"],
+                capture_output=True,
+                text=True,
+                timeout=5,
+            )
+            if r.returncode == 0:
+                repo_root = r.stdout.strip()
+        except Exception:
+            pass
+        for base in [os.environ.get("_JULES_PACK_DIR", ""), os.getcwd(), repo_root]:
             candidate = os.path.join(base, path)
             if os.path.isfile(candidate):
                 path = candidate
@@ -559,12 +581,12 @@ def main() -> None:
     os.environ["_JULES_PACK_DIR"] = os.path.abspath(args.pack_dir)
 
     # ---- GATE-1: Only submit pending tasks from PACK.md ----
-    pending_ids = parse_pending_tasks(args.pack_dir)
+    pending_list, pending_ids = parse_pending_tasks(args.pack_dir)
     task_files = filter_task_files(tasks_dir, pending_ids)
 
     # ---- GATE-FNAME: Enforce unique 1:1 task_id → file mapping ----
-    id_to_file = gate_fname_unique_mapping(task_files, pending_ids)
-    # Reorder task_files to match PACK.md pending order (deterministic)
+    id_to_file = gate_fname_unique_mapping(task_files, pending_list)
+    # Reorder task_files to match PACK.md row order (deterministic)
     task_files = list(id_to_file.values())
 
     # ---- --no-cache: Clear idempotency records for pending tasks ----

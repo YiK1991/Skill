@@ -18,7 +18,7 @@ Explicit context budget allocation with trigger-based optimization. Prevents unb
 |--------|---------------|-------------------|
 | Dynamic deep-reads (RefSpec items) | ≤12 | ≤30 |
 | Inline excerpts | ≤3, each ≤60 lines | - |
-| Tool outputs (inline) | ≤10-line summary + ≤80-line excerpt | full logs offloaded |
+| Tool outputs (inline) | ≤10-line summary + ≤60-line excerpt | full logs offloaded |
 | History reads | - | ≤1 unless regression trigger |
 
 ## Trigger rules (when to optimize)
@@ -39,7 +39,7 @@ Use when: logs/search outputs/long snippets are taking space OR budget triggers 
 Rules:
 - If a verbose blob was previously pasted in chat/session:
   1. Move/keep full blob in an offloaded file (tool_outputs / scratch).
-  2. In session, REPLACE it with: ≤10-line summary + ≤80-line excerpt + RefSpec pointer + `masked_from: step N`.
+  2. In session, REPLACE it with: ≤10-line summary + ≤60-line excerpt + RefSpec pointer + `masked_from: step N`.
 - After masking, DO NOT paste the same blob again; always cite RefSpec.
 
 ### 2) Partition (split evidence/notes into dedicated files; session keeps only index)

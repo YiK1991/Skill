@@ -599,7 +599,7 @@ Every Jules report must follow the PD-OUT v1 skeleton (defined in `prompt-envelo
 2. **How to Read This**: A/B/C/D layer table
 3. **Issue Index (Table)**: Severity + RefSpec + anchor links
 4. **Details**: Each issue/finding with full analysis
-5. **Tool Outputs (Offloaded)**: >100 lines / >2000 tokens → separate file, index table only
+5. **Tool Outputs (Offloaded)**: >60 lines / >2000 tokens → separate file, index table only
 6. **Plan Update Targets**: RefSpec + ≤3-line edit suggestions
 
 Multi-dimensional investigations (facts + risks + statistics) must split into separate files:

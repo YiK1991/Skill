@@ -11,7 +11,7 @@ Standard for all tool outputs used within PDCA sessions.
 ### concise (default)
 - `status`: ok | error
 - `summary`: ≤10 lines
-- `key_excerpt`: optional, ≤80 lines
+- `key_excerpt`: optional, ≤60 lines
 - `pointers`: RefSpec list (files/logs)
 - `next_suggested_action`: short
 

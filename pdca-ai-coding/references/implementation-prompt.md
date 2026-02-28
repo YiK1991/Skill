@@ -30,7 +30,7 @@ TDD RULES:
 - Write the minimum code to make the test pass
 - Commit after each green test (or small batch of related tests)
 - Refactor after green, before moving to next test
-- Capture full test output to a log file. Inline only a short summary (≤10 lines) and key excerpt (≤80 lines), plus RefSpec pointer to the full log.
+- Capture full test output to a log file. Inline only a short summary (≤10 lines) and key excerpt (≤60 lines), plus RefSpec pointer to the full log.
 
 EDGE ANCHOR CHECKPOINT (every step):
 - Before executing: read the session Head Anchor (≤7 lines).
