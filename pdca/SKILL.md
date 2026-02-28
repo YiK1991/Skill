@@ -1,0 +1,421 @@
+---
+name: pdca-ai-coding
+description: Structured Plan-Do-Check-Act framework for AI code generation with Claude Code or Cline. Use when implementing features, adding functionality, refactoring code, or any coding task that benefits from test-driven development, quality assurance, and continuous improvement. Prevents code quality issues, reduces debugging time, and maintains architectural consistency through structured prompts and human-AI collaboration.
+---
+# PDCA AI Coding Framework
+
+Structured workflow for high-quality AI-assisted code generation using Plan-Do-Check-Act principles.
+
+## When to Use This Skill
+
+Use this skill for:
+
+- Implementing new features (1-3 hour tasks)
+- Refactoring existing code
+- Adding integrations or cross-system functionality
+- Any coding task requiring test-driven development
+- Tasks where code quality and maintainability matter
+
+**Do NOT use for:**
+
+- Simple bug fixes (use lightweight version)
+- Trivial changes that don't need testing
+- Exploratory coding or prototyping
+
+## Quick Start
+
+For a standard coding session:
+
+1. **Review Working Agreements** - Load references/working-agreements.md (1 min read)
+2. **Run Analysis**: "Load references/analysis-prompt.md and analyze [your objective]"
+3. **Run Planning**: "Load references/planning-prompt.md and create the plan"
+4. **Run Implementation**: "Load references/implementation-prompt.md and proceed with the plan"
+5. **Run Completion Check**: "Load references/completion-prompt.md and verify our work"
+6. **Run Retrospective**: "Load references/retrospective-prompt.md to learn from this session"
+
+## Working Agreements (Summary)
+
+**Full agreements in references/working-agreements.md - read before each session!**
+
+**Note:** This skill works globally across all your projects. For project-specific configuration (tech stack, conventions), you can optionally create a `.claude/instructions.md` file in your project root. The Analysis phase will automatically check for and use this configuration. See the repository's `docs/PROJECT-CONFIGURATION.md` for details.
+
+**Core Principles:**
+
+- ✅ **Test-Driven Development**: Failing tests first, then production code
+- ✅ **Incremental Change**: Small commits (<100 lines, <5 files)
+- ✅ **Respect Architecture**: Follow existing patterns
+- ✅ **Human Accountability**: You own all AI-generated code
+
+**Key Intervention Questions:**
+
+- "Where's the failing test first?"
+- "Are we fixing multiple things at once?"
+- "Does this follow our patterns?"
+- "Is this commit reviewable?"
+
+See references/working-agreements.md for complete details.
+
+## ai-driven-dev (ATDD Gate Overlay)
+
+Enable this overlay **by default for most coding work** (features, refactors, non-trivial bugfixes). It turns acceptance criteria into a **durable regression/QA mechanism** via an evidence chain: `TEST_PLAN.md` (ATDD-xxx) → same-name tests → JUnit → boolean gates.
+
+Skip only when explicitly declared: `ATDD_OVERLAY=off (reason: prototype/trivial/no-behavior-change)`.
+
+**Chain:** Plan → Same-name tests → Gate A → Strict TDD → ≤5 self-repair → Gate B (JUnit) → Architecture lock → Gate D (Docs)
+
+**Gates (stdout `true/false`, stderr diagnostics):**
+
+- Gate A: `scripts/atdd_gate.py --parity-only` (plan ↔ tests parity)
+- Gate B: `scripts/atdd_gate.py --junit ... --strict --dry-run` (JUnit evidence; no workspace writes)
+- Gate C: `scripts/atdd_gate.py --audit` (plan change audit: no silent delete / swap)
+- Gate D: `scripts/doc_gate.py` (doc obligations for behavior / cross-layer / API changes)
+
+### How it fits the PDCA phases
+
+- **Plan (Analysis/Planning):** extract Repo Contract, draft `TEST_PLAN.md`, ensure every plan item is testable/observable.
+- **Do (Implementation):** strict TDD per acceptance item; enforce file/architecture boundaries via Architecture Lock.
+- **Check (Verification):** run Gate A → tests → Gate B → Gate D; results are evidence.
+- **Act (Adjust):** if assumptions change, use Change Control (CANCELLED/REPLACED) and re-run Gate C/A.
+
+### References
+
+- Start here: `references/atdd/INDEX.md`
+- Templates: `assets/TEST_PLAN_TEMPLATE.md`, `assets/ARCHITECTURE_LOCK_TEMPLATE.md`, `assets/ADR_LITE_TEMPLATE.md`
+- Optional hook (no workspace writes): `assets/pre-push-hook-atdd.sh`
+
+## Context Loading Protocol (PD + JIT)
+
+PDCA uses progressive disclosure and just-in-time identifiers by default:
+- Read summary/index first; deep-read only when triggered.
+- Use RefSpec pointers (`path#anchor` or `path:Lx-Ly`) instead of copying content.
+- Keep inline excerpts small (≤60 lines); otherwise reference via RefSpec.
+- Show changes as patch-style snippets, not full-file dumps.
+
+See: [context-loading-protocol.md](references/context-loading-protocol.md)
+
+## Tool Output Offloading (Short-term Memory)
+
+Large tool outputs must be offloaded to files (do not paste dumps into chat/session):
+- Store full output to filesystem, return only a short summary + RefSpec pointer.
+- Prefer targeted retrieval (grep + line ranges) when reusing evidence.
+
+See: [tool-output-offloading.md](references/tool-output-offloading.md)
+
+## Context Budget Allocation (Triggers)
+
+PDCA follows an explicit context budget with trigger-based optimization:
+- Maintain small static baseline; load dynamic context only when triggered.
+- Reserve buffer; never fully spend context on pre-loading.
+- If budget is exceeded, stop and optimize (mask/point/offload) before proceeding.
+
+See: [context-budget-policy.md](references/context-budget-policy.md)
+
+## Edge Anchors (Lost-in-the-middle)
+
+To reduce drift and mid-context loss:
+- Maintain short Head/Tail anchors (≤7 lines) in the session log.
+- Critical goal/next/constraints must appear at the edges, not buried mid-session.
+
+See: [edge-anchors.md](references/edge-anchors.md)
+
+## Plan Persistence / Recitation
+
+For long tasks, persist the plan in files and re-orient via short recitation:
+- Use ≤7-line recitations before/after each step.
+- If recitation conflicts with current work, stop and fix drift first.
+
+See: [recitation-protocol.md](references/recitation-protocol.md)
+
+## Investigation Compatibility (Memory Systems)
+
+When PDCA produces investigation artifacts (INV/Q/notes), it must follow:
+- Temporal validity fields (`valid_from`/`valid_until`/`status`/`superseded_by`)
+- Entity identifiers (`ENT-xxx`) + registry
+- Consolidation: invalidate but don't discard (keep history)
+
+See: [investigation-compatibility.md](references/investigation-compatibility.md)
+
+## Context Compression (Anchored + Incremental)
+
+For long sessions, compress using anchored summaries and incremental merging:
+- Optimize tokens-per-task (avoid re-fetch costs).
+- Trigger at ~70–80% utilization (or proxy triggers) and merge incrementally.
+- Track artifact trail (files/decisions) explicitly.
+
+See: [context-compression.md](references/context-compression.md)
+
+## Tool Design (Consolidation + Verbosity)
+
+To reduce tool overhead and ambiguity:
+- Prefer a small consolidated tool set; avoid overlapping tools.
+- Any tool output must support format=concise|detailed (default: concise).
+- Prefer filesystem primitives (ls/rg/open) before adding specialized tools.
+
+See: [tool-catalog.md](references/tool-catalog.md) and [tool-spec.md](references/tool-spec.md)
+
+## Multi-agent (Context Isolation)
+
+Workers are used only for high-parallel-value scenarios (wide search / multi-hypothesis / multi-module triage).
+Worker outputs must be short (≤12 lines) + RefSpecs + confidence; bulk evidence must be offloaded.
+
+See: [multi-agent-protocol.md](references/multi-agent-protocol.md)
+
+## Evaluation Gate
+
+Prompt/rule changes must be validated on a small regression suite under budget constraints.
+Use the multi-dimensional rubric (correctness, traceability, tool efficiency, budget compliance).
+
+See: [eval-rubric.md](references/eval-rubric.md) and [eval-regression-suite.md](references/eval-regression-suite.md)
+
+## Context Engineering (All Protocols Index)
+
+All context-engineering protocols are cataloged in a single index for discoverability.
+
+See: [context-engineering/INDEX.md](references/context-engineering/INDEX.md)
+
+## Adaptive Execution (Env-Aware)
+
+PDCA is an agile implementer that adapts to the project's existing infrastructure:
+
+1. **With Infrastructure (plan-doc-editor is present)**
+   - If you detect `_tracker.md` or planned `B file`s in the workspace:
+     - **Static baseline (always)**: `_tracker.md` active rows + the selected B file header/Before-You-Start (no deep reads yet).
+     - **Dynamic discovery**: when missing context, run Discovery Ladder ([discovery-ladder.md](references/discovery-ladder.md)) and only open targeted sections.
+     - **Record**: every deep read must be captured as RefSpec in session log (read list).
+     - **Discovery (Hitting a blocker)**: Do not force a fix for major architectural gaps. **STOP execution**, create a `Q-NNN` file in the `questions/` directory outlining the traceback/issue, and mark the Tracker as blocked.
+     - **Post-work**: Upon successful TDD completion, update the Tracker status to DONE.
+     - **Recitation source**: when plan-doc-editor is present, recitation prioritizes CURRENT Head/Tail + tracker active rows; otherwise use session anchors.
+
+2. **Without Infrastructure (Greenfield / Zero-start)**
+   - Follow the standard PDCA workflow (Analysis -> Planning -> Implementation).
+   - Run the **full Discovery Ladder** during Analysis to build initial context.
+   - As you proceed, **dynamically build out the same directory structures** (e.g., `execution/B-files`, `_tracker.md`, `questions/`) as needed. By the time you finish, the environment will structurally match the standard `plan-doc-editor` ecosystem.
+
+## PDCA Workflow
+
+### 1. Plan Phase - Analysis (2-10 min)
+
+**Load the analysis prompt:**
+\`\`\`
+Load references/analysis-prompt.md and analyze: [your business objective]
+\`\`\`
+
+The AI will:
+
+- Check for .claude/instructions.md (project configuration)
+- Search codebase for existing similar patterns
+- Document architectural context and abstractions
+- Propose 2-3 alternative approaches with pros/cons
+- Recommend the best approach
+
+**Your actions:**
+
+- Provide project context if requested (no .claude/instructions.md found)
+- Review the analysis thoroughly
+- Ask clarifying questions
+- Provide additional context
+- Approve the recommended approach
+- Save analysis to project tracking (Jira, Linear, etc.)
+
+### 2. Plan Phase - Task Breakdown (2 min)
+
+**Load the planning prompt:**
+\`\`\`
+Load references/planning-prompt.md and create the execution plan
+\`\`\`
+
+The AI will:
+
+- Break work into numbered, atomic TDD steps
+- Define clear acceptance criteria for each step
+- Set checkpoints every 3 steps for human review
+- Flag risks and integration points
+
+**Your actions:**
+
+- Review the plan
+- Adjust step order if needed
+- Identify high-risk steps needing more attention
+- Proceed to implementation
+
+### 3. Do Phase - Implementation (variable, <3 hours)
+
+**Load the implementation prompt:**
+\`\`\`
+Load references/implementation-prompt.md and execute the plan
+\`\`\`
+
+The AI will:
+
+- Show reasoning before each step
+- Write failing tests first (RED phase)
+- Implement minimal production code (GREEN phase)
+- Refactor while keeping tests green
+- Commit after each successful batch
+
+**Your actions:**
+
+- Monitor AI reasoning for errors
+- Intervene when context drifts
+- Provide missing context when stuck
+- Redirect if going off-plan
+- Stop and replan if assumptions prove wrong
+- Commit code after each step/batch
+
+**Key intervention points:**
+
+- When AI skips tests: "Stop. Write the failing test first."
+- When changes too big: "This is too much. Break it into smaller steps."
+- When context drifts: "Return to step X of the plan."
+- When off-pattern: "This doesn't follow the [X] pattern we identified."
+
+### 4. Check Phase - Completion Analysis (5 min)
+
+**Load the completion check prompt:**
+\`\`\`
+Load references/completion-prompt.md and verify our work
+\`\`\`
+
+The AI will:
+
+- Verify all tests pass and manual testing is complete
+- Check code quality and test coverage
+- Audit process adherence (TDD discipline maintained)
+- Review architectural consistency
+- Summarize accomplishments and deviations
+
+**Your actions:**
+
+- Review the completion analysis
+- Spot-check code to verify claims
+- Correct any inaccuracies
+- Add completion analysis to project tracking
+- Perform your own code review
+
+### 5. Act Phase - Retrospective (2-10 min)
+
+**Load the retrospective prompt:**
+\`\`\`
+Load references/retrospective-prompt.md and analyze our session
+\`\`\`
+
+The AI will:
+
+- Summarize what was accomplished
+- Identify critical moments that impacted success
+- Flag wasted effort and wrong paths
+- Highlight what worked well
+- Suggest specific improvements for next time
+
+**Your actions:**
+
+- Read and reflect on findings
+- Identify the ONE most valuable improvement
+- Update prompt templates if needed
+- Document patterns for future reference
+- Note learnings in your personal knowledge base
+
+## Complexity Variations
+
+### Lightweight (Simple, Well-Patterned Tasks)
+
+For implementing interfaces where clear examples exist:
+
+- **Skip** detailed analysis (use existing patterns)
+- **Simplify** planning (just TDD steps)
+- **Keep** TDD discipline
+- **Keep** retrospective
+
+### Full Version (Complex, Cross-System Tasks)
+
+For architectural changes, integrations, novel domains:
+
+- **Full** analysis with alternatives
+- **Detailed** planning with frequent checkpoints
+- **Strict** TDD with human review
+- **Comprehensive** completion check
+- **Deep** retrospective
+
+### Emergency Bug Fix
+
+For production issues requiring immediate fixes:
+
+- **Skip** analysis
+- **Plan**: Reproduce bug + minimal fix + verification
+- **TDD**: Write failing test exposing bug
+- **Check**: Verify fix + no regressions
+- **Act**: Document root cause and prevention
+
+## Tracking Metrics
+
+Use the metrics tracking script to measure quality:
+
+\`\`\`bash
+python scripts/track_metrics.py --repo /path/to/repo --since "7 days ago"
+\`\`\`
+
+Monitors:
+
+1. Large commit % (>100 lines) - target: <20%
+2. Sprawling commit % (>5 files) - target: <10%
+3. Test-first discipline % - target: >50%
+4. Avg files per commit - target: <5
+5. Avg lines per commit - target: <100
+
+## Session Logging
+
+Track your sessions for continuous improvement:
+
+\`\`\`bash
+python scripts/init_session.py "Feature name" --objective "Business objective"
+\`\`\`
+
+This creates a session log in \`assets/session-template.md\` format to track:
+
+- Analysis and plan decisions
+- Implementation notes and interventions
+- Completion verification results
+- Retrospective learnings and improvements
+
+## Tips for Success
+
+### Context Management
+
+- Keep sessions focused (1-3 hours)
+- If context drifts, save and start new session
+- Reference earlier analysis/plan to maintain coherence
+
+### Effective Intervention
+
+- Interrupt early when seeing reasoning errors
+- Provide missing context proactively
+- Ask clarifying questions for wrong assumptions
+
+### Common Pitfalls to Avoid
+
+- **Skipping analysis** → leads to code duplication and pattern violations
+- **Skipping tests** → leads to regressions and debugging loops
+- **Large batches** → harder to review, more likely to have issues
+- **No retrospective** → miss improvement opportunities
+
+### When to Replan
+
+Stop and create a new plan if:
+
+- Regression tests fail unexpectedly
+- You discover missing context or wrong assumptions
+- The approach proves more complex than anticipated
+- Context drifts (off-pattern solutions emerge)
+
+## Reference Files
+
+All prompts and guidelines are in the \`references/\` directory:
+
+- \`working-agreements.md\` - Core principles and intervention questions (read first!)
+- \`analysis-prompt.md\` - Detailed codebase analysis and approach selection
+- \`planning-prompt.md\` - Task breakdown into TDD steps
+- \`implementation-prompt.md\` - TDD execution guidelines
+- \`completion-prompt.md\` - Quality verification checklist
+- \`retrospective-prompt.md\` - Session learning and improvement
+
+Load these files as needed during each phase of the PDCA cycle.

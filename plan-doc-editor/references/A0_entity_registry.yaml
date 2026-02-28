@@ -1,0 +1,17 @@
+# A0_entity_registry.yaml
+# Purpose: maintain entity consistency across investigations.
+# Store canonical properties and pointers only — no detailed descriptions.
+# See references/entity-registry.md for usage rules.
+
+entities:
+  # - entity_id: ENT-AUTH-001
+  #   type: module  # module|api|person|service|dataset|repo
+  #   canonical_name: auth-service
+  #   aliases: [auth, login-service]
+  #   key_properties:
+  #     owner: "@team-auth"
+  #     repo_path: "repos/auth-service"
+  #     endpoint: "/v1/auth/*"
+  #   last_verified: "2026-02-28"
+  #   refs:
+  #     - "investigation/INV-001_auth_failures.md#Findings"

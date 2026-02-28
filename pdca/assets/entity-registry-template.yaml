@@ -1,0 +1,10 @@
+# Entity Registry Template (PDCA)
+# Compatible with plan-doc-editor A0_entity_registry.yaml
+entities:
+  - entity_id: ENT-XXX-001
+    type: module  # module|api|person|service|dataset|repo
+    canonical_name: ""
+    aliases: []
+    key_properties: {}
+    last_verified: "YYYY-MM-DD"
+    refs: []
