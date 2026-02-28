@@ -91,6 +91,13 @@
 - <例：不引入新依赖>
 - <例：不重构无关模块的命名>
 
+### Document Placement (MANDATORY — 双写硬规则)
+> 关键约束必须在 prompt 的 **header + placement** 两处重复，确保 Jules 不会遗漏。
+
+1. **允许的输出路径**：仅限修改白名单中的文件
+2. **禁止创建新目录**（不允许 `_governance/`, `Reviews/` 等）
+3. **输出路径至少在 prompt 中出现两次**（此处 + §1 Objective 或 §0 Meta）
+
 ## 4) Acceptance Criteria (testable)
 - [ ] ...
 

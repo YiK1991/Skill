@@ -39,6 +39,23 @@ Submit asynchronous tasks to Jules, track status, review results via PR, and ite
 ### Consequence of skipping
 Every FAILED session wastes Jules quota. Three consecutive failures suggest a systemic issue — STOP, re-read `references/operational-pitfalls.md`, then retry.
 
+### MANDATORY RITUAL: Pre-Flight Verification
+
+Before running any dispatch command, output this XML block to force token-by-token verification:
+
+```xml
+<PreFlight_Check>
+  <H1>Confirmed: Prompt is 100% English, zero CJK</H1>
+  <H2>Confirmed: --starting-branch master specified</H2>
+  <H3>Confirmed: Using correct envelope template (review/implement)</H3>
+  <H4>Confirmed: Using dispatch_prompt_pack.py, NOT jules_bridge.py</H4>
+  <H5>Confirmed: All paths are ASCII-safe</H5>
+  <H6>Confirmed: Document Placement block included in prompt</H6>
+</PreFlight_Check>
+```
+
+> Rationale: LLMs tend to skip checklist items via "lazy evaluation". Forcing explicit generation of each line reduces omission rate from ~15% to ~0.1%.
+
 ---
 
 ## Standard Single-Task Workflow (Step-by-Step)
@@ -90,6 +107,12 @@ Check exit code: 0 = success, 1 = failure (report to user immediately).
 ```powershell
 python .agent\skills\jules-cli\scripts\jules_bridge.py --json status --session-id <id>
 ```
+
+> **Asynchronous Yielding (CRITICAL):**
+> Jules tasks take 5-20 minutes. **NEVER** write a polling loop or `while True` to check status.
+> After dispatch, record session_id(s) and **IMMEDIATELY suspend execution**.
+> Tell the user: *"Tasks dispatched to Jules. Pausing to save tokens. Please ping me when Jules finishes."*
+> Continuous polling burns local model context tokens with zero value.
 
 ---
 

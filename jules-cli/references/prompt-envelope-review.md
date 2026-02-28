@@ -104,7 +104,7 @@
 - 日志证据：`08_System_Maintenance/Logs/`
 - **多文件输出**：如果 Prompt 要求分解输出（例如 `F-NNN` 和 `R-NNN`），在声明的目录内输出多个文件
 - **快照覆写**：如果 Prompt 指定了 `@Snapshot_xxx.md`，覆写该文件而非新建
-- **禁止**在与现有结构不一致的位置创建新目录
+- **禁止**在与现有结构不一致的位置创建新目录\r\n\r\n> **双写硬规则（Anti-drift）**：输出路径/放置规则必须在 prompt 的 **header（§0 Meta 或 §1 Objective）** 与 **此处 §4** 两处重复声明。Jules 是盲跑 worker，单次声明极易遗漏。
 
 ## 5) Output Format（报告结构 — 严格遵守）
 
@@ -122,7 +122,7 @@
 ```
 #### Issue 1: <简要描述>
 - 严重级别：🔴 Critical | 🟠 High
-- 位置：`<FilePath>` line <N>-<M>
+- 位置 (RefSpec): `path:Lx-Ly`
 - 违反规范：<引用 gemini.md / rules.md 的具体条款>
 - 现状代码：
   ```<lang>
@@ -143,7 +143,7 @@
 ```
 #### Suggestion 1: <简要描述>
 - 严重级别：🟡 Medium | 🟢 Low
-- 位置：`<FilePath>` line <N>
+- 位置 (RefSpec): `path:Lx-Ly`
 - 理由：<为什么建议修改>
 - Suggested Fix：<建议方案>
 ```
@@ -159,6 +159,14 @@
 | 优先级 | 建议任务 | 涉及文件 | 对应 Issue |
 | ------ | -------- | -------- | ---------- |
 | P0     | ...      | ...      | Issue #1   |
+```
+
+### Plan Update Targets (RefSpec + bullet)
+回流到计划的具体修改点：
+```
+| 目标文件 (RefSpec) | 推荐编辑 |
+| ------------------ | -------- |
+| `path#anchor`      | ≤3 行    |
 ```
 
 ## 6) Stop Conditions

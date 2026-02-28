@@ -41,3 +41,19 @@
 
 约束：只修改 `<file list>`；遵守 `gemini.md`；附带测试输出。
 ```
+
+---
+
+## JIT Context Hydration（Phase 2 — 宏替换预告）
+
+> 当前阶段：仅文档化语法。`dispatch_prompt_pack.py` 尚未实现解析。
+
+在 prompt 的 Code Context 段中，可使用以下宏语法替代手动粘贴代码：
+
+```markdown
+### Code Context
+{{ HYDRATE: src/auth/api.py:L10-L50 }}
+{{ HYDRATE: 11_webos/backend/services/diagnosis_service_v4.py:L1-L30 }}
+```
+
+实现后，`dispatch_prompt_pack.py` 会在发送前自动读取本地文件并将宏替换为实际代码。本地 AI 只需写一行指针，Jules 收到 100% 精准的源码，避免截断和 token 浪费。

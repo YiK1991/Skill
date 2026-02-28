@@ -35,6 +35,7 @@ import shutil
 import subprocess
 import sys
 import tempfile
+import time
 from typing import Any, Dict, List, Set
 
 # --------------- Encoding: force UTF-8 on Windows (GBK default) ---------------
@@ -417,6 +418,7 @@ def main() -> None:
     for tf in remaining:
         eprint(f"Submitting: {os.path.basename(tf)}")
         results.append(run_bridge(build_cmd(tf)))
+        time.sleep(3)  # Rate limit: prevent API 429 (matches P9 .bat timeout)
 
     # ---- GATE-5: Post-dispatch reconciliation (planned vs actual) ----
     planned = {os.path.splitext(os.path.basename(f))[0] for f in task_files}

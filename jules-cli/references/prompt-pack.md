@@ -71,7 +71,7 @@
 
 ---
 
-## results/ 文档模板（建议）
+## results/ 文档模板（与 PDCA Output Contract 对齐）
 
 ```markdown
 # TASK-XXX result
@@ -83,15 +83,20 @@
 - pr_status: open | merged | closed
 - labels: plan:<module>|run:<RUN-ID>|aspect:<ASPECT-ID>|ctx:<CTX-ID>
 
-## Key findings
+## Read List (RefSpec)
+- `path:Lx-Ly` — 实际读取的文件/锚点
+
+## Write List (RefSpec)
+- `path:Lx-Ly` — 创建或修改的文件（review 通常为空）
+
+## Evidence Pointers (RefSpec)
+Top 3-5 支持结论的关键代码/文档锚点：
+- `path:Lx-Ly` — 简述发现
+
+## Key Findings
 - ...
 
-## Recommended plan update
-- which plan card to update
-- proposed edits (bullet)
-
-## Evidence links
-- PR: <GitHub PR URL>
-- logs: <08_System_Maintenance/Logs/...>
-- code pointers: <path>
+## Plan Update Targets (RefSpec + bullet)
+回流到计划的具体修改点：
+- `path#anchor` — 推荐编辑（≤3 行）
 ```

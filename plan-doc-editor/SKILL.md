@@ -256,6 +256,10 @@ Long documents suffer from **lost-in-the-middle** — recall drops 10–40% for 
 1. Break `references/P2_implementation.md` into B files
 2. Fill: objective, prerequisites, ATDD acceptance, steps, DoD
 3. Update `execution/_tracker.md` → check G-READY gate
+4. When handoff targets Jules parallel implement:
+   a. Modification whitelist per task MUST NOT overlap
+   b. Each TASK file contains complete extracted task text (no "see CURRENT.md §3")
+   c. Interface contracts must be designed and frozen before dispatch
 
 ### E — Execution handoff
 
@@ -289,6 +293,7 @@ Long documents suffer from **lost-in-the-middle** — recall drops 10–40% for 
 12. **Link-first** — inline ≤3 lines; full detail one link away; B >120 lines → extract
 13. **Discovery-then-record** — unexpected issues → INV file + tracker + change_log; no silent fixes
 14. **PD two-pass** — Index Pass first (INDEX + CURRENT tables), Deep Pass only for registered items
+15. **Gate-J (Jules Review)** — B file DoD 含 `gate_j: required` 时，须在 DONE 前完成 Jules review PR 合并。产物：`investigation/INV-*_jules_review.md`。失败：回退为 blocked，写 Q-NNN 阻塞 tracker。
 
 ## Skill Integration
 
@@ -303,6 +308,8 @@ plan-doc-editor (this skill)
         ├── subagent-driven-development
         └── executing-plans
 ```
+
+**Routing contract**: [integration-router.md](references/integration-router.md) — 任务类型→Skill 路由、统一输出契约、门禁映射、回流协议
 
 ## Bundled Resources
 
