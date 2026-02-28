@@ -1,7 +1,7 @@
 # PDCA AI Coding Skill
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
-[![Version](https://img.shields.io/badge/version-1.1.0-blue.svg)](https://github.com/MarcherGA/pdca-ai-coding-skill/releases)
+[![Version](https://img.shields.io/badge/version-1.2.0-blue.svg)](https://github.com/YiK1991/Skill/tree/main/pdca)
 [![Claude AI](https://img.shields.io/badge/Claude-AI%20Skill-purple.svg)](https://claude.ai)
 [![PRs Welcome](https://img.shields.io/badge/PRs-welcome-brightgreen.svg)](CONTRIBUTING.md)
 
@@ -40,7 +40,7 @@ From the InfoQ article's experiment:
 ### Installation (< 2 minutes)
 
 **Option 1: Download Release**
-1. Go to [Releases](https://github.com/your-org/pdca-ai-coding-skill/releases/latest)
+1. Go to [Releases](https://github.com/YiK1991/Skill/releases/latest)
 2. Download the latest release
 3. Upload to Claude.ai:
    - Open [Claude.ai](https://claude.ai)
@@ -51,7 +51,7 @@ From the InfoQ article's experiment:
 
 **Option 2: Build from Source**
 ```bash
-git clone https://github.com/your-org/pdca-ai-coding-skill.git
+git clone https://github.com/YiK1991/Skill.git
 cd pdca-ai-coding-skill
 # Upload SKILL.md to Claude.ai
 ```
@@ -191,7 +191,7 @@ The skill is designed to be customized:
 
 ```bash
 # Clone and customize
-git clone https://github.com/your-org/pdca-ai-coding-skill.git
+git clone https://github.com/YiK1991/Skill.git
 cd pdca-ai-coding-skill
 
 # Edit prompts in references/
@@ -250,12 +250,12 @@ No! Only create it for projects with specific conventions or when you find yours
 
 If you find this useful, please star the repository! It helps others discover the framework.
 
-[![Star History Chart](https://api.star-history.com/svg?repos=your-org/pdca-ai-coding-skill&type=Date)](https://star-history.com/#your-org/pdca-ai-coding-skill&Date)
+[![Star History Chart](https://api.star-history.com/svg?repos=YiK1991/Skill&type=Date)](https://star-history.com/#YiK1991/Skill&Date)
 
 ## 💬 Community
 
-- **Discussions**: [GitHub Discussions](https://github.com/your-org/pdca-ai-coding-skill/discussions) - Share experiences, ask questions
-- **Issues**: [Bug reports and feature requests](https://github.com/your-org/pdca-ai-coding-skill/issues)
+- **Discussions**: [GitHub Discussions](https://github.com/YiK1991/Skill/discussions) - Share experiences, ask questions
+- **Issues**: [Bug reports and feature requests](https://github.com/YiK1991/Skill/issues)
 - **Twitter**: Share your results with `#PDCACoding`
 
 ## 📚 Learn More
@@ -311,5 +311,5 @@ Want to share your experience? We'd love to hear how PDCA is working for you!
 ---
 
 **Version:** 1.1  
-**Last Updated:** 2025  
+**Last Updated:** 2026-02  
 **Status:** Production Ready ✅

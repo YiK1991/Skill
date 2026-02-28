@@ -9,7 +9,7 @@
 | `<file1>` | UI / Interface / UseCase / Domain / Infra |
 | `<file2>` | ...                                       |
 
-## Allowed Changes (≤3 files)
+## Allowed Changes (≤3 files by default, or as specified by B file scope)
 1. `<file1>` - <改动说明>
 2. `<file2>` - <改动说明>
 3. `<file3>` - <改动说明>

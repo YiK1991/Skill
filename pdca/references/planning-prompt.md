@@ -185,9 +185,15 @@ If the session enables the ATDD overlay, extend the plan with the following deli
 ### C. Gate checkpoints (explicit commands)
 Insert checkpoints as plan steps (not optional):
 1. Gate A parity: `python3 scripts/atdd_gate.py --plan TEST_PLAN.md --tests-root tests/atdd --parity-only`
+
+   > **Stub Rule:** To satisfy Gate A parity without breaking strict TDD, first create placeholder test *definitions* for ALL ATDD items (one test per item) using `skip`/`xfail` markers. Run Gate A parity only. Do NOT run Gate B until all placeholders have been converted to real tests.
+
 2. Run acceptance tests producing JUnit: `$ATDD_TEST_CMD`
-3. Gate B boolean verify (no writes): `python3 scripts/atdd_gate.py --plan TEST_PLAN.md --tests-root tests/atdd --junit "$ATDD_JUNIT_PATH" --strict --dry-run`
-4. Gate D doc gate (when applicable): `python3 scripts/doc_gate.py --base origin/main --strict`
+3. Gate B boolean verify (completion gate): `python3 scripts/atdd_gate.py --plan TEST_PLAN.md --tests-root tests/atdd --junit "$ATDD_JUNIT_PATH" --strict --dry-run`
+
+   > **Timing constraint:** Gate B is a *completion* gate: run it only when all ATDD items are implemented and expected to pass. During incremental TDD, do not rely on Gate B.
+
+4. Gate D doc gate (when applicable): `python3 scripts/doc_gate.py --base auto --strict`
 
 ### D. Change Control plan
 - Specify the conditions that trigger a **Change Declaration** and Gate C audit.

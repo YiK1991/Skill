@@ -26,6 +26,7 @@ Bridge protocol ensuring PDCA investigation artifacts are compatible with plan-d
 ## Entity registry rules
 
 1. Use `ENT-xxx` identifiers in F/C/H; store properties in `A0_entity_registry.yaml`.
+   - **If plan-doc-editor is present**: PDCA has **READ-ONLY** access to `A0_entity_registry.yaml`. Record proposed changes to interfaces/entities as Q-NNN findings in `investigation/INV-xxx.md`; plan-doc-editor owns registry updates.
 2. Update `last_verified` when adding/modifying properties.
 
 ## Consolidation rules (invalidate but don't discard)

@@ -75,6 +75,8 @@ Use this template to track your coding sessions. Copy this for each new session.
 
 ### Context Budget Tracker (Proxy)
 
+> Values are approximate; if uncertain, use `~` or `?` instead of inventing numbers. Triggers are based on thresholds, not exact accounting.
+
 | Step | dynamic_reads | inline_excerpts | tool_outputs_offloaded | history_reads | trigger_hit? | action_taken |
 |------|---------------|-----------------|------------------------|---------------|--------------|--------------|
 | 1    | -             | -               | -                      | -             | -            | -            |

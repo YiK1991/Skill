@@ -263,7 +263,7 @@ If the session enables the ATDD overlay, apply the following **in addition** to 
 ### 1) Architecture Lock before changes
 Before each change batch, produce an **Architecture Lock** (copy the template if needed):
 - Scope, touched files, intended layer per file
-- Allowed changes (default ≤3 files) and explicit red lines
+- Allowed changes (default ≤3 files; if a B file exists, scope MUST match or encompass the B file's file list)
 - Each red line must reference a Contract Summary item by number/title
 
 ### 2) Do not implement until the gates are satisfied
@@ -274,6 +274,8 @@ Before each change batch, produce an **Architecture Lock** (copy the template if
   - RED test must fail for the right reason (not syntax/import)
   - GREEN minimal implementation only for the failing test
   - Refactor only while fully green
+  - **Stale result cleanup:** Before running tests, always delete stale JUnit files: `rm -f "$ATDD_JUNIT_PATH"` (or equivalent on Windows). Then run `$ATDD_TEST_CMD` to regenerate fresh results.
+  - **Tick side-effect:** If you run `--tick` (non-dry-run), it modifies `TEST_PLAN.md`. Always `git add TEST_PLAN.md` and include it in the commit. Run `git status --porcelain` before committing to detect gate side-effects.
 
 ### 3) Self-repair loop (≤5 rounds) with stop conditions
 When tests fail:

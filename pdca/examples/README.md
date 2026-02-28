@@ -105,4 +105,4 @@ We'd love to see your real-world PDCA sessions!
 
 ---
 
-**Have questions about these examples?** Open a [GitHub Discussion](https://github.com/your-org/pdca-ai-coding-skill/discussions)!
+**Have questions about these examples?** Open a [GitHub Discussion](https://github.com/YiK1991/Skill/discussions)!

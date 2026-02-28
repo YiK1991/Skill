@@ -112,7 +112,10 @@ STEP 4: CONFIGURATION & SETUP
    - Check for feature flags or settings that may be relevant
 
 STEP 5: ALTERNATIVE APPROACHES
-   - Propose 2-3 different technical approaches to solve this problem
+   - If a plan-doc-editor B file is provided, SKIP this step entirely.
+     Treat the B file as architectural truth. Focus on verifying alignment
+     and surfacing blockers as Q-NNN.
+   - Otherwise, propose 2-3 different technical approaches to solve this problem
    - For each approach, provide:
      * Pros and cons
      * Integration complexity (low/medium/high)

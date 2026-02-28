@@ -1,6 +1,6 @@
 ---
 name: pdca-ai-coding
-description: Structured Plan-Do-Check-Act framework for AI code generation with Claude Code or Cline. Use when implementing features, adding functionality, refactoring code, or any coding task that benefits from test-driven development, quality assurance, and continuous improvement. Prevents code quality issues, reduces debugging time, and maintains architectural consistency through structured prompts and human-AI collaboration.
+description: Structured Plan-Do-Check-Act framework for AI code generation. Use when implementing features, adding functionality, refactoring code, or any coding task that benefits from test-driven development, quality assurance, and continuous improvement. Prevents code quality issues, reduces debugging time, and maintains architectural consistency through structured prompts and human-AI collaboration.
 ---
 # PDCA AI Coding Framework
 
@@ -32,7 +32,8 @@ For small, well-understood changes that don't justify the full PDCA cycle.
 2. Total diff < 50 lines
 3. No cross-layer / cross-module dependencies
 4. Existing test pattern can be reused (copy-adapt, not invent)
-5. No architectural or public-interface change
+5. No architectural, public-interface, or functional behavior change
+   (cosmetic/textual/logging changes are OK)
 
 **Lite Mode flow:**
 
@@ -52,7 +53,11 @@ For small, well-understood changes that don't justify the full PDCA cycle.
 
 For a standard coding session:
 
-0. **Decide Mode** - Evaluate Lite Mode eligibility above. If ALL 5 conditions are met → use Lite Mode flow. Otherwise → Full Mode below.
+0. **Decide Mode** — Evaluate task complexity:
+   - ALL Lite eligibility met? → **Lite** (skip to step 4 TDD only)
+   - Existing pattern, simple task with behavior change? → **Lightweight** (simplified analysis, skip detailed planning)
+   - Production fire? → **Emergency** (skip analysis, reproduce-bug test → fix → verify)
+   - Everything else → **Full** (all steps below)
 1. **Review Working Agreements** - Load references/working-agreements.md (1 min read)
 2. **Run Analysis**: "Load references/analysis-prompt.md and analyze [your objective]"
 3. **Run Planning**: "Load references/planning-prompt.md and create the plan"
@@ -93,7 +98,8 @@ Skip only when explicitly declared: `ATDD_OVERLAY=off (reason: prototype/trivial
 **Gates (stdout `true/false`, stderr diagnostics):**
 
 - Gate A: `scripts/atdd_gate.py --parity-only` (plan ↔ tests parity)
-- Gate B: `scripts/atdd_gate.py --junit ... --strict --dry-run` (JUnit evidence; no workspace writes)
+- Gate B: `scripts/atdd_gate.py --junit ... --strict --dry-run` (JUnit evidence; no workspace writes in dry-run mode)
+  - **Side-effects note**: Gate scripts are default side-effect-free, with these exceptions: `test-results/` (JUnit output dir), `.pdca/` (circuit breaker state when `PDCA_GATE_MAX_RETRIES>0`). Both are `.gitignore`d.
 - Gate C: `scripts/atdd_gate.py --audit` (plan change audit: no silent delete / swap)
 - Gate D: `scripts/doc_gate.py` (doc obligations for behavior / cross-layer / API changes)
 
@@ -113,8 +119,10 @@ Skip only when explicitly declared: `ATDD_OVERLAY=off (reason: prototype/trivial
 ## Context Loading Protocol (PD + JIT)
 
 PDCA uses progressive disclosure and just-in-time identifiers by default:
+
 - Read summary/index first; deep-read only when triggered.
 - Use RefSpec pointers (`path#anchor` or `path:Lx-Ly`) instead of copying content.
+  - **Prefer stable anchors** (`path#heading` for markdown; `path#ClassName.method` for code) over line ranges, because line numbers drift during editing.
 - Keep inline excerpts small (≤60 lines); otherwise reference via RefSpec.
 - Show changes as patch-style snippets, not full-file dumps.
 
@@ -123,6 +131,7 @@ See: [context-loading-protocol.md](references/context-loading-protocol.md)
 ## Tool Output Offloading (Short-term Memory)
 
 Large tool outputs must be offloaded to files (do not paste dumps into chat/session):
+
 - Store full output to filesystem, return only a short summary + RefSpec pointer.
 - Prefer targeted retrieval (grep + line ranges) when reusing evidence.
 
@@ -131,6 +140,7 @@ See: [tool-output-offloading.md](references/tool-output-offloading.md)
 ## Context Budget Allocation (Triggers)
 
 PDCA follows an explicit context budget with trigger-based optimization:
+
 - Maintain small static baseline; load dynamic context only when triggered.
 - Reserve buffer; never fully spend context on pre-loading.
 - If budget is exceeded, stop and optimize (mask/point/offload) before proceeding.
@@ -140,6 +150,7 @@ See: [context-budget-policy.md](references/context-budget-policy.md)
 ## Edge Anchors (Lost-in-the-middle)
 
 To reduce drift and mid-context loss:
+
 - Maintain short Head/Tail anchors (≤7 lines) in the session log.
 - Critical goal/next/constraints must appear at the edges, not buried mid-session.
 
@@ -148,6 +159,7 @@ See: [edge-anchors.md](references/edge-anchors.md)
 ## Plan Persistence / Recitation
 
 For long tasks, persist the plan in files and re-orient via short recitation:
+
 - Use ≤7-line recitations before/after each step.
 - If recitation conflicts with current work, stop and fix drift first.
 
@@ -156,6 +168,7 @@ See: [recitation-protocol.md](references/recitation-protocol.md)
 ## Investigation Compatibility (Memory Systems)
 
 When PDCA produces investigation artifacts (INV/Q/notes), it must follow:
+
 - Temporal validity fields (`valid_from`/`valid_until`/`status`/`superseded_by`)
 - Entity identifiers (`ENT-xxx`) + registry
 - Consolidation: invalidate but don't discard (keep history)
@@ -165,6 +178,7 @@ See: [investigation-compatibility.md](references/investigation-compatibility.md)
 ## Context Compression (Anchored + Incremental)
 
 For long sessions, compress using anchored summaries and incremental merging:
+
 - Optimize tokens-per-task (avoid re-fetch costs).
 - Trigger at ~70–80% utilization (or proxy triggers) and merge incrementally.
 - Track artifact trail (files/decisions) explicitly.
@@ -174,6 +188,7 @@ See: [context-compression.md](references/context-compression.md)
 ## Tool Design (Consolidation + Verbosity)
 
 To reduce tool overhead and ambiguity:
+
 - Prefer a small consolidated tool set; avoid overlapping tools.
 - Any tool output must support format=concise|detailed (default: concise).
 - Prefer filesystem primitives (ls/rg/open) before adding specialized tools.
@@ -205,18 +220,19 @@ See: [context-engineering/INDEX.md](references/context-engineering/INDEX.md)
 PDCA is an agile implementer that adapts to the project's existing infrastructure:
 
 1. **With Infrastructure (plan-doc-editor is present)**
+
    - If you detect `_tracker.md` or planned `B file`s in the workspace:
      - **Static baseline (always)**: `_tracker.md` active rows + the selected B file header/Before-You-Start (no deep reads yet).
      - **Dynamic discovery**: when missing context, run Discovery Ladder ([discovery-ladder.md](references/discovery-ladder.md)) and only open targeted sections.
      - **Record**: every deep read must be captured as RefSpec in session log (read list).
      - **Discovery (Hitting a blocker)**: Do not force a fix for major architectural gaps. **STOP execution**, create a `Q-NNN` file in the `questions/` directory outlining the traceback/issue, and mark the Tracker as blocked.
-     - **Post-work**: Upon successful TDD completion, update the Tracker status to DONE.
+     - **Post-work**: Upon successful TDD completion, report completion via tool command (e.g., `python scripts/update_tracker.py --task B-001 --status DONE`). Do NOT hand-edit `_tracker.md` directly — Markdown table formatting is fragile under long-context token decay.
      - **Recitation source**: when plan-doc-editor is present, recitation prioritizes CURRENT Head/Tail + tracker active rows; otherwise use session anchors.
-
 2. **Without Infrastructure (Greenfield / Zero-start)**
+
    - Follow the standard PDCA workflow (Analysis -> Planning -> Implementation).
    - Run the **full Discovery Ladder** during Analysis to build initial context.
-   - As you proceed, **dynamically build out the same directory structures** (e.g., `execution/B-files`, `_tracker.md`, `questions/`) as needed. By the time you finish, the environment will structurally match the standard `plan-doc-editor` ecosystem.
+   - Only create `execution/`, `_tracker.md`, `questions/` if plan-doc-editor is detected **or** the user explicitly opts into plan-doc-editor layout. Otherwise, keep artifacts under `scratch/`.
 
 ## PDCA Workflow
 
@@ -344,14 +360,15 @@ The AI will:
 
 ## Complexity Modes
 
-| Mode | When | Skip | Keep |
-|------|------|------|------|
-| **Lite** | Single-file, <50 lines, no behavior/interface change, reuse existing pattern | Analysis, Planning, Completion, Retrospective | TDD, Commit |
-| **Lightweight** | Small task with behavior change, clear existing patterns | Detailed analysis | TDD, Planning (simplified), Retrospective |
-| **Full** | Cross-system, architectural, novel domain, >50 lines | — | All 5 phases |
-| **Emergency** | Production down, requires immediate fix | Analysis | Reproduce-bug test → minimal fix → verify → root-cause doc |
+| Mode                  | When                                                                         | Skip                                          | Keep                                                          |
+| --------------------- | ---------------------------------------------------------------------------- | --------------------------------------------- | ------------------------------------------------------------- |
+| **Lite**        | Single-file, <50 lines, no behavior/interface change, reuse existing pattern | Analysis, Planning, Completion, Retrospective | TDD, Commit                                                   |
+| **Lightweight** | Small task with behavior change, clear existing patterns                     | Detailed analysis                             | TDD, Planning (simplified), Retrospective                     |
+| **Full**        | Cross-system, architectural, novel domain, >50 lines                         | —                                            | All 5 phases                                                  |
+| **Emergency**   | Production down, requires immediate fix                                      | Analysis                                      | Reproduce-bug test → minimal fix → verify → root-cause doc |
 
 **Mode selection rule:**
+
 1. ALL Lite Mode eligibility met (see above)? → **Lite**
 2. Existing pattern, simple task? → **Lightweight**
 3. Production fire? → **Emergency**

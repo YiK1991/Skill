@@ -142,6 +142,8 @@ def run_git(args: Sequence[str], strict: bool) -> Tuple[Optional[str], str]:
         if strict:
             return None, msg
         return "", msg
+    except (FileNotFoundError, PermissionError, OSError) as e:
+        return None, f"[ENV] {e}"
 
 
 def get_merge_base(base: str, strict: bool) -> Tuple[Optional[str], str]:
@@ -255,13 +257,34 @@ def check_api_changes(changed_paths: Set[str]) -> Tuple[bool, str]:
     return False, "API 变更必须更新 docs/api/** 或 docs/changes/**"
 
 
+def _resolve_base(requested: str) -> str:
+    """Auto-detect base branch if requested=='auto'."""
+    if requested != "auto":
+        return requested
+    candidates = ["origin/main", "origin/master", "main", "master"]
+    for ref in candidates:
+        try:
+            subprocess.run(
+                ["git", "rev-parse", "--verify", ref],
+                capture_output=True,
+                check=True,
+            )
+            return ref
+        except (subprocess.CalledProcessError, FileNotFoundError, OSError):
+            continue
+    return "HEAD~1"
+
+
 def main() -> int:
     ap = argparse.ArgumentParser(description="Doc Gate V3+ - 文档门禁工具")
-    ap.add_argument("--base", default="origin/main", help="比较基准分支/SHA")
+    ap.add_argument(
+        "--base", default="auto", help="比较基准分支/SHA (default: auto-detect)"
+    )
     ap.add_argument(
         "--strict", action="store_true", help="严格模式 (git/diff 失败即失败)"
     )
     args = ap.parse_args()
+    args.base = _resolve_base(args.base)
 
     changes, warn_or_err, diff_base = get_changes(args.base, strict=args.strict)
 
