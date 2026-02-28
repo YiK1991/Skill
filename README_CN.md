@@ -1,68 +1,76 @@
-# Skill Development
+# AI Agent 开发者技能库：上下文工程与多节点编排
 
-[English](README.md) | **中文**
+> [English](README.md) | **中文**
 
-AI Agent 技能集合 — 覆盖计划管理、代码质量、远程任务编排三个核心环节。专注于解决长上下文漂移、代码质量下降和复杂任务分解问题。
+专为解决大型 LLM 辅助软件工程中的三大痛点而设计的专业 Agent 技能库：**长上下文退化 (Context Degradation)**、**架构漂移 (Architectural Drift)** 与 **质量保障 (Quality Assurance)**。
 
-## 技能一览
+本仓库提供了三个深度协同的技能包，将您的 AI 编程助手（如 Claude Code 或 Cline）从“单文件编辑器”升级为“多 Agent 编排引擎”，使其具备零技术债务交付史诗级 (Epic-scale) 级特性的能力。
 
-| 技能 | 用途 | 入口 |
-|------|------|------|
-| **plan-doc-editor** | 计划管理（控制面）：将复杂计划拆解为两级扁平模块，支持渐进式上下文加载、调查跟踪、批量任务管理 | [`plan-doc-editor/SKILL.md`](plan-doc-editor/SKILL.md) |
-| **pdca-ai-coding** | 代码开发（执行面）：基于 PDCA 循环的 AI 辅助编码框架，内置 TDD 纪律、ATDD 门禁、质量度量 | [`pdca-ai-coding/SKILL.md`](pdca-ai-coding/SKILL.md) |
-| **jules-cli** | 远程编排（Worker 面）：向 Jules 分发异步任务，支持 Review/Implement 模板、批量调度、结果回流 | [`jules-cli/SKILL.md`](jules-cli/SKILL.md) |
+---
 
-## 协同架构模式
+## 🏗️ 三大核心基石 (Skills)
 
-本组件库并非只能以单一的自上而下模式运行，而是根据任务复杂度支持三种灵活的架构模式：
+| 技能 | 层面 | 核心机制 | 入口 |
+|------|------|----------|------|
+| **`plan-doc-editor`** | **控制面**<br/>*(上下文管家)* | 将宏大的目标重构为两级扁平的“模块树”。实现**渐进式披露 (Progressive Disclosure)**，仅优先加载索引，并通过 `Q-` 与 `INV-` 文件追踪未知变量生命周期。 | [`plan-doc-editor/SKILL.md`](plan-doc-editor/SKILL.md) |
+| **`pdca-ai-coding`** | **执行面**<br/>*(TDD 引擎)* | 用纪律严明的 Plan-Do-Check-Act 循环取代自由散漫的编码。强制推行 **ATDD 门禁**（奇偶校验、JUnit 证据、审计与文档对照）、熔断器与上下文预算策略。 | [`pdca-ai-coding/SKILL.md`](pdca-ai-coding/SKILL.md) |
+| **`jules-cli`** | **Worker 面**<br/>*(异步集群)* | 将独立的调研、代码审查或边界分明的开发任务分发给异步 Worker (Jules)。提供严格的 `Prompt Envelopes` (提示词封装条约) 和批量调度脚本。 | [`jules-cli/SKILL.md`](jules-cli/SKILL.md) |
 
-### 模式一：单兵作战 (Greenfield / Zero-Infrastructure)
-**适用场景**：中小型功能开发、局部重构（1-3 小时任务）
-**核心机制**：无需任何前置基础设施，直接使用 `pdca-ai-coding` 完成闭环。
-```
-pdca-ai-coding (单体运行)
-  ├── Analysis (现状分析与方案比较)
-  ├── Planning (测试驱动的任务拆解)
-  ├── Implementation (执行 TDD 循环)
-  └── Retrospective (复盘与协议沉淀)
-```
+---
+
+## 🧠 核心架构哲学
+
+### 1. 上下文防御 (Context Defense)
+抛弃无脑填塞 Token 的低效方式，系统采用 **先扫描后阅读 (Scan-Before-Read)** 与 **JIT 按需指针** 协议。控制面仅静态映射项目的骨架（标题与表格），只有当触发器条件满足时，才顺着 `RefSpec` 指针（如 `path#anchor`）动态加载指定范围的深层上下文，有效规避“迷失在中间 (Lost-in-the-Middle)”现象。
+
+### 2. 物理与逻辑验证门禁 (The Verification Gates)
+`pdca-ai-coding` 拒绝仅凭 AI 的“自言自语”确认质量，它通过外部脚本建立物理防线：
+- **Gate A (一致性)**：校验执行计划与测试计划 (`TEST_PLAN`) 的严格对应。
+- **Gate B (物理证据)**：在标记任务完成前，强制要求通过 JUnit/Pytest/Vitest 的 dry-run 拦截。
+- **Gate C/D**：进行计划防篡改审计与 API 文档更新校验。
+
+### 3. 一元化的集成契约 (Unified Integration Contract)
+跨越三个层面的输入与输出已被彻底标准化。任何任务（无论由本地执行还是异步节点执行），其结束标记必须是标准的 **RefSpec 契约返回**：
+- `Read List` (挂载了哪些上下文)
+- `Write List` (突变了哪些文件)
+- `Evidence Pointers` (指向验证结论的关键日志/代码行)
+- `Plan Update Targets` (对上游控制面板的设计调整建议)
+
+---
+
+## 🔄 弹性协作模式
+
+该工具链可随项目规模弹性伸缩，支持三种协作拓扑：
+
+### 模式一：单兵作战 (Greenfield / Standalone)
+**适用场景**：中小型功能开发、局部缺陷修复（1-3 小时的任务段）。
+**运转机制**：以 `pdca-ai-coding` 为唯一引擎。分析仓库、提出备选方案、将其拆解为严谨的 RED/GREEN/REFACTOR TDD 步骤，并通过内置回顾机制进行自我修正。
 
 ### 模式二：顶层编排 (Top-Down Orchestration)
-**适用场景**：大型史诗级任务、跨模块重构、需要防范长上下文漂移的超大工程。
-**核心机制**：由 `plan-doc-editor` 充当大脑建立两级扁平计划，按需加载上下文，将具体开发任务交给本地 `pdca` 执行，将耗时的代码审计或外围修正交给 `jules-cli`。
-```
-plan-doc-editor (控制面 - 上下文管家)
-  ├── 1. 调查分发 (INV-*) → 交给 jules-cli 或 本地 subagent
-  ├── 2. 计划设计 (Px/Ax) → 冻结 ATDD 规范与架构契约
-  └── 3. 执行下发 (B-*)
-        ├── 核心业务开发 → pdca-ai-coding (基于静态基线)
-        └── 独立/并行任务 → jules-cli (异步 PR)
-```
+**适用场景**：史诗级特性交付、跨层级的系统重构。
+**运转机制**：由 `plan-doc-editor` 充当主脑。它绘制依赖图谱，将阻塞性问题打包发给 `jules-cli` 调研，同时将静态的基线要求（B-files 规范）喂给本地 `pdca-ai-coding` 稳步推进执行，断绝无头苍蝇式的全局游荡和雪崩式的代码破坏。
 
-### 模式三：异步集群 (Asynchronous Swarm)
-**适用场景**：大规模代码审查、批量机械化重构、针对多个独立服务的同时修改。
-**核心机制**：主 Agent 将任务切分为互不干扰（无重叠修改集）的碎片指令，通过 `jules-cli` 的批量分发脚本 (`dispatch_prompt_pack.py`) 唤醒多个云端 Agent 并行工作。
-```
-主 Agent (或 plan-doc-editor)
-  └── 生成 Prompt Pack (Review/Implement 模板)
-        └── dispatch_prompt_pack.py (本地限流与防呆拦截)
-              ├── Worker 1 (Jules) → PR #101
-              ├── Worker 2 (Jules) → PR #102
-              └── Worker 3 (Jules) → PR #103
-```
+### 模式三：异步并发集群 (Asynchronous Swarm)
+**适用场景**：大规模机械性代码审查、架构漏洞广度扫描。
+**运转机制**：主脑将工作切割为修改集不相交的任务碎片，通过 `jules-cli` 的 `dispatch_prompt_pack.py` 并行唤起多台云端 Agent，以 PR 的形式安全合流，并在合并前引入 **Gate-J** 异步审查关卡。
 
-> **路由契约参考**：有关各组件间完整的输入/输出/门禁映射表，请参阅 [`plan-doc-editor/references/integration-router.md`](plan-doc-editor/references/integration-router.md)。
+*(关于更详尽的 I/O 边界与调度表，请查阅 [集成路由参考](plan-doc-editor/references/integration-router.md))*
 
-## 来源与致谢
+---
 
-- **PDCA 框架**：Fork 自 [MarcherGA/pdca-ai-coding-skill](https://github.com/MarcherGA/pdca-ai-coding-skill)（基于 [Ken Judy 的 InfoQ 文章](https://www.infoq.com/articles/PDCA-AI-code-generation/)）。在原版基础上大幅扩展了 ATDD 门禁、Lite Mode、Circuit Breaker、会话模板、Discovery Ladder 等机制。
-- **Context Engineering 参照**：部分机制（渐进式加载、上下文退化防护、多 Agent 协调模式）参考了 [muratcankoylan/Agent-Skills-for-Context-Engineering](https://github.com/muratcankoylan/Agent-Skills-for-Context-Engineering)。
-- **plan-doc-editor** 和 **jules-cli** 为本项目原创。
+## 🚀 安装与用法
 
-## 安装
+1. 克隆或下载本仓库。
+2. 挑选符合您当下开发流的 Skill 目录。
+3. 将该目录（如 `plan-doc-editor`）直接拖入 AI 助手的专门目录中（例如 `.agent/skills/` ）。
+4. 大语言模型在读取其 `SKILL.md` 的描述字段后，会在您发送对应自然语言指令（如“请帮我拆解一下这份重构计划”、“把这个 review 任务发给 Jules”）时自动无缝唤醒并接管流程。
 
-每个技能的安装方式以其 `SKILL.md` 的 frontmatter `description` 字段为触发条件。将整个技能目录放入 AI Agent 的 skills 目录即可。
+---
 
-## 许可
+## 📜 致谢与开源许可
 
-[MIT](LICENSE) — 原版 PDCA 框架由 MarcherGA 创建，扩展部分由 YiK1991 维护。
+- **PDCA TDD 引擎**：Fork 自 [MarcherGA/pdca-ai-coding-skill](https://github.com/MarcherGA/pdca-ai-coding-skill)，并做了重度二次开发（基于 [Ken Judy 关于 AI 辅助编码的深度文章](https://www.infoq.com/articles/PDCA-AI-code-generation/)）。
+- **上下文工程 (Context Engineering)**：有关多 Agent 协调、降级上下文保护与动态预算等思想内核，深受 Murat Can Koylan 所著 [Agent-Skills-for-Context-Engineering](https://github.com/muratcankoylan/Agent-Skills-for-Context-Engineering) 的启发。
+- **架构编排**：控制面 (`plan-doc-editor`)、Worker 面 (`jules-cli`)、ATDD 逻辑门禁组及统一路由契约，均为本项目的原创性扩展成果。
+
+基于 [MIT License](LICENSE) 授权。
