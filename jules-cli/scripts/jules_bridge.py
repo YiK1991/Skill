@@ -121,7 +121,7 @@ def load_record(path: str) -> Optional[Dict[str, Any]]:
 
 def save_record(path: str, rec: Dict[str, Any]) -> None:
     ensure_dir(os.path.dirname(path))
-    tmp = path + ".tmp"
+    tmp = f"{path}.{os.getpid()}.tmp"
     with open(tmp, "w", encoding="utf-8") as f:
         json.dump(rec, f, ensure_ascii=False, indent=2)
     os.replace(tmp, path)
@@ -166,7 +166,9 @@ def api_list_sources(api_key: str) -> List[Dict[str, Any]]:
     sources: List[Dict[str, Any]] = []
     page_token = ""
     while True:
-        path = "/sources?pageSize=100" + (f"&pageToken={page_token}" if page_token else "")
+        path = "/sources?pageSize=100" + (
+            f"&pageToken={page_token}" if page_token else ""
+        )
         code, data = api_request(api_key, "GET", path)
         if code != 200:
             raise RuntimeError(f"ListSources failed: {code} {data}")
@@ -233,24 +235,32 @@ def api_get_session(cfg: BridgeConfig, session_id: str) -> Dict[str, Any]:
 
 def api_approve_plan(cfg: BridgeConfig, session_id: str) -> None:
     assert cfg.api_key
-    code, data = api_request(cfg.api_key, "POST", f"/sessions/{session_id}:approvePlan", {})
+    code, data = api_request(
+        cfg.api_key, "POST", f"/sessions/{session_id}:approvePlan", {}
+    )
     if code not in (200, 204):
         raise RuntimeError(f"ApprovePlan failed: {code} {data}")
 
 
 def api_send_message(cfg: BridgeConfig, session_id: str, message: str) -> None:
     assert cfg.api_key
-    code, data = api_request(cfg.api_key, "POST", f"/sessions/{session_id}:sendMessage", {"prompt": message})
+    code, data = api_request(
+        cfg.api_key, "POST", f"/sessions/{session_id}:sendMessage", {"prompt": message}
+    )
     if code not in (200, 204):
         raise RuntimeError(f"SendMessage failed: {code} {data}")
 
 
-def api_list_activities(cfg: BridgeConfig, session_id: str, page_size: int = 100) -> List[Dict[str, Any]]:
+def api_list_activities(
+    cfg: BridgeConfig, session_id: str, page_size: int = 100
+) -> List[Dict[str, Any]]:
     assert cfg.api_key
     out: List[Dict[str, Any]] = []
     token = ""
     while True:
-        path = f"/sessions/{session_id}/activities?pageSize={page_size}" + (f"&pageToken={token}" if token else "")
+        path = f"/sessions/{session_id}/activities?pageSize={page_size}" + (
+            f"&pageToken={token}" if token else ""
+        )
         code, data = api_request(cfg.api_key, "GET", path)
         if code != 200:
             raise RuntimeError(f"ListActivities failed: {code} {data}")
@@ -311,7 +321,9 @@ def cli_remote_new(repo: str, prompt: str, parallel: int = 1) -> Tuple[str, str]
         cmd += ["--parallel", str(parallel)]
     r = cli_run(cmd, timeout_s=300, stdin_text=prompt)
     if r.returncode != 0:
-        raise RuntimeError(r.stderr.strip() or r.stdout.strip() or "jules remote new failed")
+        raise RuntimeError(
+            r.stderr.strip() or r.stdout.strip() or "jules remote new failed"
+        )
     return r.stdout, r.stderr
 
 
@@ -332,9 +344,14 @@ def cli_guess_session_id(list_output: str, prompt_hint: str = "") -> Optional[st
     candidates: List[str] = []
     lines = list_output.splitlines()
     if prompt_hint:
-        for ln in lines:
-            if prompt_hint[:40] in ln:
-                candidates += re.findall(r"\b\d{6,}\b", ln)
+        # Extract first non-empty line to avoid newline chars breaking match
+        hint = next((ln.strip() for ln in prompt_hint.splitlines() if ln.strip()), "")[
+            :40
+        ]
+        if hint:
+            for ln in lines:
+                if hint in ln:
+                    candidates += re.findall(r"\b\d{6,}\b", ln)
     if not candidates:
         candidates = re.findall(r"\b\d{6,}\b", list_output)
     return candidates[-1] if candidates else None
@@ -477,7 +494,7 @@ def cmd_status(cfg: BridgeConfig, session_id: str) -> Dict[str, Any]:
         sess = api_get_session(cfg, session_id)
         pr_url = None
         for out in sess.get("outputs", []) or []:
-            pr = (out.get("pullRequest") or {})
+            pr = out.get("pullRequest") or {}
             if pr.get("url"):
                 pr_url = pr.get("url")
                 break
@@ -512,7 +529,9 @@ def cmd_wait(cfg: BridgeConfig, session_id: str, until: List[str]) -> Dict[str, 
     last: Dict[str, Any] = {}
 
     if mode != "api":
-        raise RuntimeError("wait is only reliable in api mode (explicit session state).")
+        raise RuntimeError(
+            "wait is only reliable in api mode (explicit session state)."
+        )
 
     while True:
         last = cmd_status(cfg, session_id)
@@ -591,26 +610,64 @@ def build_parser() -> argparse.ArgumentParser:
         default=os.environ.get("JULES_MODE", "auto"),
         help="auto (default): api if JULES_API_KEY is set, else cli",
     )
-    p.add_argument("--repo", default=os.environ.get("JULES_REPO", "."), help="For cli: '.' or owner/repo. For api: owner/repo (or use --source).")
-    p.add_argument("--starting-branch", default=os.environ.get("JULES_BRANCH", "main"), help="API only: starting branch.")
-    p.add_argument("--source", default=os.environ.get("JULES_SOURCE"), help="API only: source name like 'sources/github/owner/repo'.")
-    p.add_argument("--automation-mode", default=os.environ.get("JULES_AUTOMATION_MODE", "AUTO_CREATE_PR"), help="API only: default AUTO_CREATE_PR (PR-only workflow). Override with AUTOMATION_MODE_UNSPECIFIED if needed.")
-    p.add_argument("--require-plan-approval", action="store_true", help="API only: require explicit plan approval before execution")
-    p.add_argument("--state-dir", default=os.environ.get("JULES_STATE_DIR", ".runtime/jules"), help="Local durable state directory (not in documentation domain).")
-    p.add_argument("--timeout-s", type=int, default=int(os.environ.get("JULES_TIMEOUT_S", "1800")), help="wait timeout")
-    p.add_argument("--poll-interval-s", type=int, default=int(os.environ.get("JULES_POLL_INTERVAL_S", "10")), help="wait poll interval")
+    p.add_argument(
+        "--repo",
+        default=os.environ.get("JULES_REPO", "."),
+        help="For cli: '.' or owner/repo. For api: owner/repo (or use --source).",
+    )
+    p.add_argument(
+        "--starting-branch",
+        default=os.environ.get("JULES_BRANCH", "main"),
+        help="API only: starting branch.",
+    )
+    p.add_argument(
+        "--source",
+        default=os.environ.get("JULES_SOURCE"),
+        help="API only: source name like 'sources/github/owner/repo'.",
+    )
+    p.add_argument(
+        "--automation-mode",
+        default=os.environ.get("JULES_AUTOMATION_MODE", "AUTO_CREATE_PR"),
+        help="API only: default AUTO_CREATE_PR (PR-only workflow). Override with AUTOMATION_MODE_UNSPECIFIED if needed.",
+    )
+    p.add_argument(
+        "--require-plan-approval",
+        action="store_true",
+        help="API only: require explicit plan approval before execution",
+    )
+    p.add_argument(
+        "--state-dir",
+        default=os.environ.get("JULES_STATE_DIR", ".runtime/jules"),
+        help="Local durable state directory (not in documentation domain).",
+    )
+    p.add_argument(
+        "--timeout-s",
+        type=int,
+        default=int(os.environ.get("JULES_TIMEOUT_S", "1800")),
+        help="wait timeout",
+    )
+    p.add_argument(
+        "--poll-interval-s",
+        type=int,
+        default=int(os.environ.get("JULES_POLL_INTERVAL_S", "10")),
+        help="wait poll interval",
+    )
     p.add_argument("--json", action="store_true", help="Output machine-readable JSON")
 
     sub = p.add_subparsers(dest="cmd", required=True)
 
-    s_submit = sub.add_parser("submit", help="Submit a prompt file as a new Jules session (idempotent).")
+    s_submit = sub.add_parser(
+        "submit", help="Submit a prompt file as a new Jules session (idempotent)."
+    )
     s_submit.add_argument("--title", required=True)
     s_submit.add_argument("--prompt-file", required=True)
 
     s_status = sub.add_parser("status", help="Get session status.")
     s_status.add_argument("--session-id", required=True)
 
-    s_wait = sub.add_parser("wait", help="Wait until session reaches one of the target states (API only).")
+    s_wait = sub.add_parser(
+        "wait", help="Wait until session reaches one of the target states (API only)."
+    )
     s_wait.add_argument("--session-id", required=True)
     s_wait.add_argument(
         "--until",
@@ -621,7 +678,9 @@ def build_parser() -> argparse.ArgumentParser:
     s_approve = sub.add_parser("approve", help="Approve latest plan (API only).")
     s_approve.add_argument("--session-id", required=True)
 
-    s_send = sub.add_parser("send", help="Send a follow-up message to the same session (API only).")
+    s_send = sub.add_parser(
+        "send", help="Send a follow-up message to the same session (API only)."
+    )
     s_send.add_argument("--session-id", required=True)
     s_send.add_argument("--message-file", required=True)
 
@@ -663,7 +722,9 @@ def main() -> None:
         elif args.cmd == "approve":
             payload = cmd_approve(cfg, session_id=args.session_id)
         elif args.cmd == "send":
-            payload = cmd_send(cfg, session_id=args.session_id, message_file=args.message_file)
+            payload = cmd_send(
+                cfg, session_id=args.session_id, message_file=args.message_file
+            )
         elif args.cmd == "tail":
             payload = cmd_tail(cfg, session_id=args.session_id, limit=int(args.limit))
         else:

@@ -103,8 +103,8 @@ def filter_task_files(tasks_dir: str, pending_ids: Set[str]) -> List[str]:
     matched: List[str] = []
     skipped: List[str] = []
     for fname in all_files:
-        # Extract TASK-XXX from filename (e.g., TASK-017.md, TASK-017__title.md)
-        m = re.match(r"(TASK-[A-Za-z0-9\-]+)", fname, re.IGNORECASE)
+        # Extract TASK-XXX from filename (e.g., TASK-017.md, TASK-017_auth.md)
+        m = re.match(r"(TASK-[\w\-]+)", fname, re.IGNORECASE)
         if m and m.group(1).upper() in pending_ids:
             matched.append(os.path.join(tasks_dir, fname))
         else:
@@ -150,13 +150,11 @@ def ensure_ascii_paths(task_files: List[str]) -> List[str]:
         eprint("GATE-2 PASSED: All paths are ASCII-safe")
         return task_files
 
-    # Create ASCII-safe temp directory
-    temp_dir = os.path.join(tempfile.gettempdir(), "jules_dispatch_tasks")
-    os.makedirs(temp_dir, exist_ok=True)
-
-    # Clear previous contents
-    for old in os.listdir(temp_dir):
-        os.remove(os.path.join(temp_dir, old))
+    # Create isolated PID-scoped temp directory (prevents concurrent collision)
+    temp_dir = os.path.join(tempfile.gettempdir(), f"jules_dispatch_{os.getpid()}")
+    if os.path.isdir(temp_dir):
+        shutil.rmtree(temp_dir)
+    os.makedirs(temp_dir)
 
     relocated: List[str] = []
     for src in task_files:
@@ -174,10 +172,10 @@ def ensure_ascii_paths(task_files: List[str]) -> List[str]:
 # ========================== GATE-3: Smoke Test ==========================
 
 
-def smoke_test_first(task_files: List[str], build_cmd_fn) -> bool:
+def smoke_test_first(task_files: List[str], build_cmd_fn) -> Dict[str, Any]:
     """Submit the first task alone. If it fails, abort the entire batch.
 
-    Returns True if smoke test passed.
+    Returns the result dict on success.
     Raises SystemExit if it failed.
     """
     first = task_files[0]
@@ -190,7 +188,7 @@ def smoke_test_first(task_files: List[str], build_cmd_fn) -> bool:
         eprint(
             f"GATE-3 PASSED: Smoke test succeeded (session_id={result.get('session_id', '?')})"
         )
-        return True
+        return result
 
     raise SystemExit(
         f"GATE-3 BLOCKED: Smoke test FAILED for {os.path.basename(first)}.\n"
@@ -338,7 +336,7 @@ def main() -> None:
     # ---- GATE-6: Verify remote branch exists ----
     repo = args.repo
     branch = args.starting_branch
-    if repo != ".":
+    if repo != "." and not repo.startswith("sources/"):
         gh_url = f"https://github.com/{repo}.git"
         try:
             ls = subprocess.run(
@@ -400,8 +398,9 @@ def main() -> None:
         return cmd
 
     # ---- GATE-3: Smoke test first task ----
+    smoke_result = None
     if not args.skip_smoke:
-        smoke_test_first(task_files, build_cmd)
+        smoke_result = smoke_test_first(task_files, build_cmd)
         # First task already submitted by smoke test; start from index 1
         remaining = task_files[1:]
     else:
@@ -411,10 +410,9 @@ def main() -> None:
     # ---- Dispatch remaining tasks ----
     results: List[Dict[str, Any]] = []
 
-    # Include smoke test result if it was run
-    if not args.skip_smoke:
-        results.append(run_bridge(build_cmd(task_files[0])))
-        # ^ This will return the cached/reused session from smoke test
+    # Reuse smoke test result directly (no re-invocation)
+    if smoke_result is not None:
+        results.append(smoke_result)
 
     for tf in remaining:
         eprint(f"Submitting: {os.path.basename(tf)}")
