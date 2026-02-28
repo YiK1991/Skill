@@ -31,7 +31,8 @@
 
 在 `Prompt Envelope` 的 `Context to read` 里，只引用：
 
-- 必读：`<plan_module>/SKILL.md`
+- 必读：`<plan_module>/INDEX.md`（若存在；plan-doc-editor 模块优先）否则 `<plan_module>/SKILL.md`
+- 若有 `CURRENT.md`：读表格段落（Pass0 静态基线）
 - 选读：与本任务"单一方面"直接相关的 1–3 个 references 文件
 
 避免：

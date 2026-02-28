@@ -315,6 +315,8 @@ Long documents suffer from **lost-in-the-middle** — recall drops 10–40% for 
 13. **Discovery-then-record** — unexpected issues → INV file + tracker + change_log; no silent fixes
 14. **PD two-pass** — Index Pass first (INDEX + CURRENT tables), Deep Pass only for registered items
 15. **Gate-J (Jules Review)** — B file DoD 含 `gate_j: required` 时，须在 DONE 前完成 Jules review PR 合并。产物：`investigation/INV-*_jules_review.md`。失败：回退为 blocked，写 Q-NNN 阻塞 tracker。
+16. **G-SYNC（强制同步门禁）** — 进入 DESIGNING 前必须通过：(1) Pass0 读 INDEX/CURRENT 表格段 + `_tracker.md` active/blocked 行；(2) 写 `investigation/INV-000_state_audit.md`（含 Facts / Conflicts & Resolutions / 缺口清单）；(3) 更新 `CURRENT.md §1` + `change_log.md`。三步全做完方可进 DESIGNING。
+17. **No-chat-only-planning** — 对话中产生的任何新架构决策/方案变更，必须落盘到 `references/P*`（含 D-xxx 锚点）+ 记入 `change_log.md`，否则不允许进入 Workflow D（Task Breakdown）。纯对话推进等于未记录，不算完成。
 
 ## Skill Integration
 

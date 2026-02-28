@@ -124,15 +124,14 @@
 
 ### Authority & Must-Read (in order)
 1) Project root rules: `gemini.md`, `agent.md`, `rules.md` (and module-level rule files)
-2) Integration contract: `.agent/skills/plan-doc-editor/references/integration-router.md`
-3) Output fields contract: `.agent/skills/pdca-ai-coding/references/output-contract.md`
-4) Plan disclosure rule: `.agent/skills/jules-cli/references/plan-as-skill-integration.md`
+2) Integration contract (Core output fields + evidence standard): `.agent/skills/plan-doc-editor/references/integration-router.md`
+3) Plan disclosure rule: `.agent/skills/jules-cli/references/plan-as-skill-integration.md`
 
-### Output Contract (REQUIRED fields; exact names; RefSpec only)
-{{ HYDRATE: .agent/skills/pdca-ai-coding/references/output-contract.md:L5-L14 }}
+### Output Contract (REQUIRED Core fields; exact names; RefSpec only)
+{{ HYDRATE: .agent/skills/pdca-ai-coding/references/output-contract.md:L8-L13 }}
 
 ### Integration Router (gates + Gate-J definition)
-{{ HYDRATE: .agent/skills/plan-doc-editor/references/integration-router.md:L15-L41 }}
+{{ HYDRATE: .agent/skills/plan-doc-editor/references/integration-router.md:L17-L44 }}
 
 ### Stop Conditions (do NOT "guess and patch")
 - If required files are missing, rules conflict, or scope is ambiguous: STOP and report with Evidence Pointers.
