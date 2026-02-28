@@ -4,7 +4,7 @@
 
 ## 来源
 
-Fork 自 [kenjudy/pdca-code-generation-process](https://github.com/kenjudy/pdca-code-generation-process)（MIT License）。
+Fork 自 [MarcherGA/pdca-ai-coding-skill](https://github.com/MarcherGA/pdca-ai-coding-skill)（MIT License）。
 
 ## 与原版的主要差异
 

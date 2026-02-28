@@ -26,7 +26,7 @@ plan-doc-editor (控制面)
 
 ## 来源与致谢
 
-- **PDCA 框架**：Fork 自 [kenjudy/pdca-code-generation-process](https://github.com/kenjudy/pdca-code-generation-process)，基于 [Ken Judy 的 InfoQ 文章](https://www.infoq.com/articles/PDCA-AI-code-generation/)。在原版基础上大幅扩展了 ATDD 门禁、Lite Mode、Circuit Breaker、会话模板、Discovery Ladder 等机制。
+- **PDCA 框架**：Fork 自 [MarcherGA/pdca-ai-coding-skill](https://github.com/MarcherGA/pdca-ai-coding-skill)（基于 [Ken Judy 的 InfoQ 文章](https://www.infoq.com/articles/PDCA-AI-code-generation/)）。在原版基础上大幅扩展了 ATDD 门禁、Lite Mode、Circuit Breaker、会话模板、Discovery Ladder 等机制。
 - **Context Engineering 参照**：部分机制（渐进式加载、上下文退化防护、多 Agent 协调模式）参考了 [muratcankoylan/Agent-Skills-for-Context-Engineering](https://github.com/muratcankoylan/Agent-Skills-for-Context-Engineering)。
 - **plan-doc-editor** 和 **jules-cli** 为本项目原创。
 
