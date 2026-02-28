@@ -51,7 +51,11 @@
 - module: <module>
 - goal: <one paragraph>
 - related plan module: <path/to/plan_module/>
-- conventions: `gemini.md`, `agent.md`, `rules.md`（Jules 执行每个 task 前必须先读取根目录及涉及模块下的规范文件）
+- conventions:
+  - Project rules: `gemini.md`, `agent.md`, `rules.md`（Jules 执行每个 task 前必须先读取根目录及涉及模块下的规范文件）
+  - Output contract: `.agent/skills/pdca-ai-coding/references/output-contract.md`（字段名固定、RefSpec only）
+  - Integration router: `.agent/skills/plan-doc-editor/references/integration-router.md`（统一路由、门禁映射、Gate-J）
+  - Disclosure rule: `.agent/skills/jules-cli/references/plan-as-skill-integration.md`（披露式上下文、回流字段）
 - run_id: <RUN-ID>
 - result_flow: PR-only（所有结果通过 PR 推送，禁止 local pull）
 

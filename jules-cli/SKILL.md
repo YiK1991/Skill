@@ -35,6 +35,7 @@ Submit asynchronous tasks to Jules, track status, review results via PR, and ite
 | H4 | **Dispatch method** | MUST use `dispatch_prompt_pack.py` for submission. NEVER call `jules_bridge.py submit` directly. | P11: Manual calls bypass GATE-6 branch validation → silent FAILED |
 | H5 | **ASCII file path** | Task file and pack directory MUST be on an ASCII-only path (e.g. `C:\temp\jules_tasks\`). Copy files there first if source path contains CJK. | P3: Chinese paths → garbled in subprocess → FAILED |
 | H6 | **Output path declaration** | Prompt MUST include Document Placement block specifying allowed output paths. Multiple files are allowed within declared paths. | P6: Jules creates files outside declared paths → PR rejection |
+| H7 | **Governance Capsule** | Prompt MUST include `## Governance Capsule (MANDATORY)` section with Authority chain, Output Contract fields, and Stop Conditions (§4.5 in templates). | P13: Monolithic output without PD structure → unprocessable |
 
 ### Consequence of skipping
 Every FAILED session wastes Jules quota. Three consecutive failures suggest a systemic issue — STOP, re-read `references/operational-pitfalls.md`, then retry.
@@ -185,5 +186,6 @@ Derive review tasks from **specific plan decisions** (not broad dimensions):
 ### Scripts
 
 - **`scripts/jules_bridge.py`** — Stable local entry point (API mode, JSON output, default `AUTO_CREATE_PR`)
-- **`scripts/dispatch_prompt_pack.py`** — Prompt Pack batch dispatcher (with GATE-1~6 safety checks)
+- **`scripts/dispatch_prompt_pack.py`** — Prompt Pack batch dispatcher (with GATE-1~7 safety checks incl. Governance Capsule)
+- **`scripts/gate_pd_output.py`** — Post-execution quality gate: validates PD-OUT v1 structure (run before PR merge)
 - **`scripts/jules_dispatch.py`** — Lightweight dispatch helper

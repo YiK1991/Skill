@@ -4,25 +4,14 @@
 Three hard gates block submission before any API call is made:
 
   GATE-1 (Status Filter): Only tasks marked `pending` in PACK.md are submitted.
-         If PACK.md is missing or has no pending tasks, abort.
-  GATE-2 (ASCII Path):    All file paths passed to jules_bridge must be ASCII-only.
-         If the pack-dir contains non-ASCII characters, task files are transparently
-         copied to a temp directory under an ASCII-safe path before dispatch.
-  GATE-3 (Smoke Test):    The FIRST pending task is submitted alone. Only if it
-         succeeds (returns ok=true) are the remaining tasks dispatched.
-  GATE-4 (Batch Limit):   Default max 5 tasks per dispatch. Override with --max-batch N.
-         Prevents accidental mass submission.
-         Use --skip-smoke to bypass (e.g., re-runs after a partial batch).
+  GATE-2 (ASCII Path):    Non-ASCII paths are copied to a temp dir automatically.
+  GATE-2b (Hydration):    {{ HYDRATE: path:Lx-Ly }} macros are replaced with file content.
+  GATE-3 (Smoke Test):    The first task is submitted alone; if it fails, the batch aborts.
+  GATE-4 (Batch Limit):   Batch size is capped (default 10) to prevent accidental mass submit.
+  GATE-6 (Branch Check):  Verifies the starting branch exists on the remote.
+  GATE-7 (Governance):    Each task file must contain Governance Capsule + Document Placement.
 
-Example:
-  python scripts/dispatch_prompt_pack.py \\
-    --pack-dir 00_Documentation/99_Inbox/<module>/jules_pack \\
-    --repo YiK1991/Amazon_SaaS_ERP \\
-    --starting-branch master \\
-    --json
-
-Output:
-  JSON array of per-task submit payloads.
+See jules-cli/references/operational-pitfalls.md for the full pitfall catalog.
 """
 
 from __future__ import annotations
@@ -440,6 +429,34 @@ def main() -> None:
             eprint(f"GATE-6 PASSED: Branch '{branch}' exists in {repo}")
         except subprocess.TimeoutExpired:
             eprint(f"GATE-6 SKIPPED: git ls-remote timed out (proceeding anyway)")
+
+    # ---- GATE-7: Governance Capsule Validation ----
+    gate7_failures = []
+    for tf in task_files:
+        try:
+            content = open(tf, encoding="utf-8", errors="replace").read()
+        except OSError:
+            gate7_failures.append(f"  {os.path.basename(tf)}: cannot read file")
+            continue
+        missing = []
+        if "Governance Capsule" not in content:
+            missing.append("## Governance Capsule")
+        if "Document Placement" not in content:
+            missing.append("## Document Placement")
+        if missing:
+            gate7_failures.append(
+                f"  {os.path.basename(tf)}: missing {', '.join(missing)}"
+            )
+    if gate7_failures:
+        raise SystemExit(
+            "GATE-7 BLOCKED: Governance Capsule / Document Placement missing\n"
+            "\n" + "\n".join(gate7_failures) + "\n\n"
+            "Fix: Add §4.5 Governance Capsule (with HYDRATE macros) and §4 Document\n"
+            "Placement to each task file. See prompt-envelope-review.md / implement.md."
+        )
+    eprint(
+        f"GATE-7 PASSED: All {len(task_files)} tasks have Governance Capsule + Placement"
+    )
 
     bridge_py = os.path.join(os.path.dirname(__file__), "jules_bridge.py")
 

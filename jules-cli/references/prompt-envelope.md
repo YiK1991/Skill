@@ -14,6 +14,8 @@
 3. **必须提供相关计划/调研文档链接**
 4. **分支规则**：在特性分支工作，通过 PR 提交，禁止直接推 main
 5. **远程可见性**：prompt 引用的文件必须已推送到远程仓库
+6. **Governance Capsule**：每个任务必须包含 `## Governance Capsule (MANDATORY)` 段，声明权威规则来源（项目规范 + Output Contract + Integration Router）与输出契约字段。详见各模板的 §4.5。
+7. **PD-OUT v1（输出必须分层）**：Report/文档输出必须遵循 Progressive Disclosure 结构：Head Anchor (≤7 lines) → How to Read This → Index/Summary → Details → Tool Outputs (Offloaded) → Plan Update Targets。单个代码块 ≤60 行，超出部分 offload 到独立文件并用 RefSpec 指针引用。
 
 ## "进一步修改" 消息模板
 
@@ -44,11 +46,11 @@
 
 ---
 
-## JIT Context Hydration（Phase 2 — 宏替换预告）
+## JIT Context Hydration（已实现 — GATE-2b）
 
-> 当前阶段：仅文档化语法。`dispatch_prompt_pack.py` 尚未实现解析。
+`dispatch_prompt_pack.py` 在 GATE-2b 阶段自动解析 `{{ HYDRATE: ... }}` 宏并替换为实际文件内容。
 
-在 prompt 的 Code Context 段中，可使用以下宏语法替代手动粘贴代码：
+在 prompt 的任意位置，可使用以下宏语法替代手动粘贴代码：
 
 ```markdown
 ### Code Context
@@ -56,4 +58,4 @@
 {{ HYDRATE: 11_webos/backend/services/diagnosis_service_v4.py:L1-L30 }}
 ```
 
-实现后，`dispatch_prompt_pack.py` 会在发送前自动读取本地文件并将宏替换为实际代码。本地 AI 只需写一行指针，Jules 收到 100% 精准的源码，避免截断和 token 浪费。
+**Governance Capsule 推荐用法**：在 Capsule 中用 HYDRATE 注入关键规范片段（如 Output Contract、Integration Router 的门禁映射），做到"全量规范可达，prompt 仍保持精炼"。

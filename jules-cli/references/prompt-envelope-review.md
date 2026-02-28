@@ -102,22 +102,82 @@
 - 默认路径：`00_Documentation/99_Inbox/<模块>/<日期>_<主题>/review_report.md`
 - 如果是 Prompt Pack 的一部分：`jules_pack/results/TASK-XXX_review.md`
 - 日志证据：`08_System_Maintenance/Logs/`
-- **多文件输出**：如果 Prompt 要求分解输出（例如 `F-NNN` 和 `R-NNN`），在声明的目录内输出多个文件
+- **多文件输出（默认策略）**：当 scope 涉及多维（事实+风险+统计），**必须**输出拆分文件：
+  - `.../TASK-XXX_INDEX.md`（仅索引 + Head Anchor）
+  - `.../F-XXX_facts.md`（事实与数据流）
+  - `.../R-XXX_risks.md`（风险与建议）
+  单维审查可输出单文件，但仍须包含 PD-OUT v1 结构（§5）。
 - **快照覆写**：如果 Prompt 指定了 `@Snapshot_xxx.md`，覆写该文件而非新建
-- **禁止**在与现有结构不一致的位置创建新目录\r\n\r\n> **双写硬规则（Anti-drift）**：输出路径/放置规则必须在 prompt 的 **header（§0 Meta 或 §1 Objective）** 与 **此处 §4** 两处重复声明。Jules 是盲跑 worker，单次声明极易遗漏。
+- **禁止**在与现有结构不一致的位置创建新目录
 
-## 5) Output Format（报告结构 — 严格遵守）
+> **双写硬规则（Anti-drift）**：输出路径/放置规则必须在 prompt 的 **header（§0 Meta 或 §1 Objective）** 与 **此处 §4** 两处重复声明。Jules 是盲跑 worker，单次声明极易遗漏。
 
-### 审查摘要
+## 4.5) Governance Capsule (MANDATORY)
+
+> 每个 Jules 任务必须携带治理胶囊。不要整段粘贴规范原文，使用 HYDRATE 宏注入关键片段。
+
+```markdown
+## Governance Capsule (MANDATORY — treat as non-negotiable)
+
+### Authority & Must-Read (in order)
+1) Project root rules: `gemini.md`, `agent.md`, `rules.md` (and module-level rule files)
+2) Integration contract: `.agent/skills/plan-doc-editor/references/integration-router.md`
+3) Output fields contract: `.agent/skills/pdca-ai-coding/references/output-contract.md`
+4) Plan disclosure rule: `.agent/skills/jules-cli/references/plan-as-skill-integration.md`
+
+### Output Contract (REQUIRED fields; exact names; RefSpec only)
+{{ HYDRATE: .agent/skills/pdca-ai-coding/references/output-contract.md:L5-L14 }}
+
+### Integration Router (gates + Gate-J definition)
+{{ HYDRATE: .agent/skills/plan-doc-editor/references/integration-router.md:L15-L41 }}
+
+### Stop Conditions (do NOT "guess and patch")
+- If required files are missing, rules conflict, or scope is ambiguous: STOP and report with Evidence Pointers.
+- If you cannot produce RefSpec evidence for a claim: mark it as UNKNOWN (do not fabricate).
 ```
-审查范围：<被审查的文件/目录列表>
-审查基准：<使用的规范文件列表>
-审查维度：<本次检查的维度>
-结果：Found <N> urgent issues, <M> suggestions.
+
+> **HYDRATE 宏**由 `dispatch_prompt_pack.py` GATE-2b 自动替换为实际文件内容。本地 AI 只需写指针，Jules 收到精确的原文片段。
+
+## 5) Output Format — PD-OUT v1 (MANDATORY)
+
+> 报告结构必须遵循 Progressive Disclosure：先索引后细节，大段内容 offload。
+
+### 5.0 Progressive Disclosure Structure (每份报告必须包含以下骨架)
+
+```markdown
+## Head Anchor (≤7 lines)
+结论 / 审查范围 / 高优先问题数 / 下一步 / 关键链接
+
+## How to Read This (Progressive Disclosure)
+| Layer | Content | When to Read |
+|-------|---------|--------------|
+| A. Head Anchor | 结论与范围 | Always |
+| B. Issue Index | 问题索引表 | 需要概览时 |
+| C. Details | 每个 Issue 的完整分析 | 需要深入时 |
+| D. Tool Outputs | 大段日志/证据（已 offload） | 需要原始数据时 |
+
+## Issue Index (Table)
+| # | Severity | Title | RefSpec | Anchor |
+|---|----------|-------|---------|--------|
+| 1 | 🔴 Critical | ... | `path:Lx-Ly` | [→ Detail](#issue-1) |
+
+## Details
+(每个 issue 的完整分析，结构见下方 §5.1)
+
+## Tool Outputs (Offloaded)
+> 单个代码块 ≤60 行。超过阈值（>100 行或 >2000 tokens）的工具输出
+> 必须 offload 到独立文件，此处仅保留索引表：
+| Output | File | Purpose |
+|--------|------|---------|
+| test log | `TASK-XXX_testlog.txt` | Gate B evidence |
+
+## Plan Update Targets (RefSpec + bullet)
+(回流到计划的具体修改点)
 ```
 
-### Urgent Issues（必须修复）
-<违背规范、安全漏洞、严重逻辑错误>
+### 5.1 Details — Issue/Suggestion Structure (每条按此格式)
+
+#### Urgent Issues（必须修复）
 
 ```
 #### Issue 1: <简要描述>
@@ -126,7 +186,7 @@
 - 违反规范：<引用 gemini.md / rules.md 的具体条款>
 - 现状代码：
   ```<lang>
-  <当前代码片段>
+  <当前代码片段，≤60 行>
   ```
 - 问题分析：<解释为什么这是问题>
 - Suggested Fix（仅建议，不要实施）：
@@ -135,10 +195,8 @@
   ```
 - 后续 Implement 任务：<建议的任务描述，用于后续创建 TASK>
 ```
-(每个 issue 重复此结构)
 
-### Suggestions（建议改进）
-<架构优化、命名改进、代码可读性提升>
+#### Suggestions（建议改进）
 
 ```
 #### Suggestion 1: <简要描述>
@@ -148,20 +206,21 @@
 - Suggested Fix：<建议方案>
 ```
 
+### 5.2 Risk Assessment & Follow-up
+
+```
 ### Risk Assessment
 - overall_risk: (low | medium | high)
 - risk_areas: <高风险区域列表>
 - recommended_priority: <建议修复的优先顺序>
 
 ### 后续任务建议
-将需要代码修改的 issue 整理为可执行的 Implement 任务列表：
-```
 | 优先级 | 建议任务 | 涉及文件 | 对应 Issue |
 | ------ | -------- | -------- | ---------- |
 | P0     | ...      | ...      | Issue #1   |
 ```
 
-### Plan Update Targets (RefSpec + bullet)
+### 5.3 Plan Update Targets (RefSpec + bullet)
 回流到计划的具体修改点：
 ```
 | 目标文件 (RefSpec) | 推荐编辑 |

@@ -116,7 +116,46 @@
   - 测试无法通过且原因不在修改范围内
 - **如果不确定**：输出"需要的材料清单 + 建议拆分"，而非强行编写猜测代码
 
+## 4.5) Governance Capsule (MANDATORY)
+
+> 每个 Jules 任务必须携带治理胶囊。不要整段粘贴规范原文，使用 HYDRATE 宏注入关键片段。
+
+```markdown
+## Governance Capsule (MANDATORY — treat as non-negotiable)
+
+### Authority & Must-Read (in order)
+1) Project root rules: `gemini.md`, `agent.md`, `rules.md` (and module-level rule files)
+2) Integration contract: `.agent/skills/plan-doc-editor/references/integration-router.md`
+3) Output fields contract: `.agent/skills/pdca-ai-coding/references/output-contract.md`
+4) Plan disclosure rule: `.agent/skills/jules-cli/references/plan-as-skill-integration.md`
+
+### Output Contract (REQUIRED fields; exact names; RefSpec only)
+{{ HYDRATE: .agent/skills/pdca-ai-coding/references/output-contract.md:L5-L14 }}
+
+### Integration Router (gates + Gate-J definition)
+{{ HYDRATE: .agent/skills/plan-doc-editor/references/integration-router.md:L15-L41 }}
+
+### Stop Conditions (do NOT "guess and patch")
+- If required files are missing, rules conflict, or scope is ambiguous: STOP and report with Evidence Pointers.
+- If you cannot produce RefSpec evidence for a claim: mark it as UNKNOWN (do not fabricate).
+```
+
 ## 5) Output Format
+### Documentation Output (Progressive Disclosure REQUIRED)
+
+> **触发条件**：当任务 intent 涉及 write docs / update README / create spec / generate report 时，文档输出必须遵循以下分层结构。纯代码变更不受此约束。
+
+文档结构至少包含：
+1. **TL;DR / Quick Start**（给 90% 用户的一句话摘要）
+2. **Basic**（默认路径与核心用法）
+3. **Advanced / Edge Cases**（折叠层，仅需深入时阅读）
+4. **Appendix**（长解释、示例、FAQ、术语）
+
+强制规则：
+- 使用**稳定 heading anchors**，跨文件只用 RefSpec 链接（`path#anchor`），不复制粘贴大段内容
+- 文档 >150 行 → **必须拆分**为 `INDEX/OVERVIEW.md` + `DETAILS.md` 两份文件（放在修改白名单允许路径内）
+- 仍遵守 §4 的 placement 双写 + 禁止新目录红线
+
 ### A) Changes
 - 变更文件清单（文件路径 + 简述）
 

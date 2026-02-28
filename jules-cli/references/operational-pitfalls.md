@@ -565,3 +565,81 @@ python dispatch_prompt_pack.py `
   --repo YiK1991/Amazon_SaaS_ERP `
   --starting-branch master
 ```
+
+---
+
+## P13: Monolithic Report / No Progressive Disclosure
+
+### Symptom
+Jules produces a single report file >300 lines. No index, no Head Anchor, no layered
+navigation. Report is difficult to review, impossible to auto-process for plan backflow,
+and causes context bloat when loaded by follow-up agents.
+
+### Root Cause
+The prompt template lacked explicit output structure requirements. Jules defaults to
+"stream of consciousness" reporting — starting with analysis and ending with conclusions
+— which is readable but not machine-consumable or PD-compatible.
+
+### Fix: Enforce PD-OUT v1 in All Output Templates
+
+Every Jules report must follow the PD-OUT v1 skeleton (defined in `prompt-envelope-review.md` §5):
+
+1. **Head Anchor (≤7 lines)**: Conclusion / scope / counts / next step / key links
+2. **How to Read This**: A/B/C/D layer table
+3. **Issue Index (Table)**: Severity + RefSpec + anchor links
+4. **Details**: Each issue/finding with full analysis
+5. **Tool Outputs (Offloaded)**: >100 lines / >2000 tokens → separate file, index table only
+6. **Plan Update Targets**: RefSpec + ≤3-line edit suggestions
+
+Multi-dimensional investigations (facts + risks + statistics) must split into separate files:
+- `TASK-XXX_INDEX.md` (index + Head Anchor only)
+- `F-XXX_facts.md` / `R-XXX_risks.md`
+
+### Rule
+1. **Gate-PD** (`scripts/gate_pd_output.py`) validates PD-OUT v1 compliance before PR merge.
+2. If Gate-PD fails, use `sendMessage` or PR comment `@Jules` to request **format-only fixes**
+   (no content changes, no re-review).
+3. Single code blocks must be ≤60 lines (PDCA excerpt limit). Longer outputs → offload file.
+
+### Anti-Pattern
+```markdown
+# TASK-B007 Review Report            ← No Head Anchor
+## Overview                          ← No Issue Index
+### Finding 1                        ← Inline 200-line stack trace
+(... 400 lines of dense analysis ...) ← No offloading, no layering
+## Conclusion                        ← Plan Update Targets missing
+```
+
+### Proven Safe Pattern
+```markdown
+## Head Anchor (≤7 lines)
+Found 5 issues (2🔴, 3🟡). Scope: 11_webos/backend/. Next: fix Issue 1-2 first.
+
+## How to Read This (Progressive Disclosure)
+| Layer | Content | When |
+|-------|---------|------|
+| A | Head Anchor | Always |
+| B | Issue Index | Overview |
+| C | Details per issue | Deep dive |
+| D | Tool Outputs (offloaded) | Raw data |
+
+## Issue Index
+| # | Sev | Title | RefSpec | Link |
+|---|-----|-------|---------|------|
+| 1 | 🔴 | SoC violation | `svc.py:L45-L89` | [→](#issue-1) |
+
+## Details
+#### Issue 1: ...
+(structured per PD-OUT v1 template)
+
+## Tool Outputs (Offloaded)
+| Output | File | Purpose |
+|--------|------|---------|
+| full trace | `TASK-B007_trace.txt` | Gate B evidence |
+
+## Plan Update Targets (RefSpec + bullet)
+| Target | Edit |
+|--------|------|
+| `CURRENT.md#b007` | Mark as needs-fix |
+```
+
