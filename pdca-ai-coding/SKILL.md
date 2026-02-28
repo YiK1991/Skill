@@ -69,7 +69,7 @@ For a standard coding session:
 
 **Full agreements in references/working-agreements.md - read before each session!**
 
-**Note:** This skill works globally across all your projects. For project-specific configuration (tech stack, conventions), you can optionally create a `.claude/instructions.md` file in your project root. The Analysis phase will automatically check for and use this configuration. See the repository's `docs/PROJECT-CONFIGURATION.md` for details.
+**Note:** This skill works globally across all your projects. For project-specific configuration (tech stack, conventions), you can optionally create a `.claude/instructions.md` file in your project root. The Analysis phase will automatically check for and use this configuration.
 
 **Core Principles:**
 
@@ -226,7 +226,8 @@ PDCA is an agile implementer that adapts to the project's existing infrastructur
      - **Dynamic discovery**: when missing context, run Discovery Ladder ([discovery-ladder.md](references/discovery-ladder.md)) and only open targeted sections.
      - **Record**: every deep read must be captured as RefSpec in session log (read list).
      - **Discovery (Hitting a blocker)**: Do not force a fix for major architectural gaps. **STOP execution**, create a `Q-NNN` file in the `questions/` directory outlining the traceback/issue, and mark the Tracker as blocked.
-     - **Post-work**: Upon successful TDD completion, report completion via tool command (e.g., `python scripts/update_tracker.py --task B-001 --status DONE`). Do NOT hand-edit `_tracker.md` directly — Markdown table formatting is fragile under long-context token decay.\r\n   - **Gate-J (Jules Review)**: If B file frontmatter contains `gate_j: required`, do NOT mark as DONE until Jules review PR is merged. Trigger Jules review pack via `/jules` workflow, wait for result in `investigation/INV-*_jules_review.md`, then proceed to DONE.
+     - **Post-work**: Upon successful TDD completion, update `_tracker.md` status to DONE (if no `update_tracker.py` script exists in the project, edit the tracker table directly with care).
+   - **Gate-J (Jules Review)**: If B file frontmatter contains `gate_j: required`, do NOT mark as DONE until Jules review PR is merged. Trigger Jules review pack via `/jules` workflow, wait for result in `investigation/INV-*_jules_review.md` (must contain unified output fields: Read/Write/Evidence/Plan Update Targets per integration-router.md), then proceed to DONE.
      - **Recitation source**: when plan-doc-editor is present, recitation prioritizes CURRENT Head/Tail + tracker active rows; otherwise use session anchors.
 2. **Without Infrastructure (Greenfield / Zero-start)**
 

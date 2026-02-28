@@ -25,6 +25,15 @@
 
 > 字段名固定，禁止同义词替代（如不许用 "Files Changed" 替代 "Write List"）。
 
+### 证据形态标准（所有 worker 必须遵守）
+
+| 规则 | 说明 |
+|------|------|
+| RefSpec 格式 | `path:Lx-Ly` 或 `path#anchor`（禁止裸路径或 "see file X"） |
+| Inline excerpt | ≤60 lines；超过必须 offload 到独立文件 + RefSpec 引用 |
+| Evidence offload | Tool/log/trace 输出 → 独立文件（`investigation/tool_outputs/` 或 `results/`）；正文只留 ≤3 行摘要 + RefSpec |
+| 禁止全文粘贴 | 不允许在结果文件中粘贴完整源码/日志；只保留关键片段 + RefSpec 指向原文 |
+
 ## 门禁映射
 
 | Skill | 前置门禁 | 执行中门禁 | 完成门禁 |
@@ -36,7 +45,8 @@
 ## Gate-J 定义
 
 - **触发**：B file frontmatter 含 `gate_j: required`
-- **产物**：`investigation/INV-*_jules_review.md`（RefSpec 格式）
+- **产物路径**：`<plan_module>/investigation/INV-*_jules_review.md`（固定在计划模块内，不允许全局 docs 目录）
+- **产物内容**：必须包含统一输出字段（Read/Write/Evidence/Plan Update Targets）+ RefSpec 格式
 - **通过**：Review PR 已 merge 且无 🔴 Critical issues 未解决
 - **失败**：B file 回退为 `blocked`，写 `questions/Q-NNN` 阻塞 tracker
 
