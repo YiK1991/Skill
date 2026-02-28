@@ -1,39 +1,68 @@
 # Skill Development
 
-AI Agent Skills 集合 — 覆盖计划管理、代码质量、远程任务编排三个核心环节。
+**English** | [中文](README_CN.md)
+
+A collection of AI Agent Skills covering plan management, code quality, and remote task orchestration. Designed to mitigate long-context drift, maintain code quality, and decompose complex goals.
 
 ## Skills
 
-| Skill | 用途 | 入口 |
-|-------|------|------|
-| **plan-doc-editor** | 计划管理（控制面）：将复杂计划拆解为两级扁平模块，支持渐进式上下文加载、调查跟踪、批量任务管理 | [`plan-doc-editor/SKILL.md`](plan-doc-editor/SKILL.md) |
-| **pdca** | 代码开发（执行面）：基于 PDCA 循环的 AI 辅助编码框架，内置 TDD 纪律、ATDD 门禁、质量度量 | [`pdca/SKILL.md`](pdca/SKILL.md) |
-| **jules-cli** | 远程编排（Worker 面）：向 Jules 分发异步任务，支持 Review/Implement 模板、批量调度、结果回流 | [`jules-cli/SKILL.md`](jules-cli/SKILL.md) |
+| Skill | Purpose | Entry Point |
+|-------|---------|-------------|
+| **plan-doc-editor** | Plan Management (Control Plane): Restructures complex plans into two-level flat modules with progressive context loading, investigation tracking, and batch task management | [`plan-doc-editor/SKILL.md`](plan-doc-editor/SKILL.md) |
+| **pdca-ai-coding** | Code Development (Execution Plane): PDCA-cycle AI-assisted coding framework with built-in TDD discipline, ATDD gates, and quality metrics | [`pdca-ai-coding/SKILL.md`](pdca-ai-coding/SKILL.md) |
+| **jules-cli** | Remote Orchestration (Worker Plane): Dispatches async tasks to Jules with Review/Implement templates, batch scheduling, and result backflow | [`jules-cli/SKILL.md`](jules-cli/SKILL.md) |
 
-## 协同架构
+## Collaborative Architectures
 
+This toolkit is not restricted to a single top-down workflow. Depending on task complexity, it supports three flexible architecture patterns:
+
+### Pattern 1: Greenfield / Zero-Infrastructure
+**Use Case**: Small to medium feature development, localized refactors (1-3 hour tasks).
+**Mechanism**: No infrastructure required. Uses `pdca-ai-coding` as a standalone workflow to complete the loop.
 ```
-plan-doc-editor (控制面)
-  ├── 调查分发 → jules-cli → Jules Agent
-  ├── 计划设计 → ATDD 规范
-  └── 执行下发
-        ├── pdca (标准开发)
-        ├── subagent (同会话并行)
-        └── jules-cli (远程独立任务)
+pdca-ai-coding (Standalone)
+  ├── Analysis (Context discovery & alternative approaches)
+  ├── Planning (Testing-driven task breakdown)
+  ├── Implementation (Strict TDD loops)
+  └── Retrospective (Knowledge capture)
 ```
 
-统一路由契约：[`plan-doc-editor/references/integration-router.md`](plan-doc-editor/references/integration-router.md)
+### Pattern 2: Top-Down Orchestration
+**Use Case**: Massive epics, cross-module refactoring, or extremely large codebases where combating context drift is critical.
+**Mechanism**: `plan-doc-editor` acts as the Brain, mapping out a 2-tier flat plan. It progressively loads context, hands off feature development B-files to the local `pdca-ai-coding` agent, and dispatches time-consuming audits to `jules-cli`.
+```
+plan-doc-editor (Control Plane - Context Manager)
+  ├── 1. Investigation (INV-*) → Dispatched to jules-cli or local subagent
+  ├── 2. Design (Px/Ax) → Freezes ATDD specs & architectural contracts
+  └── 3. Execution (B-*)
+        ├── Core business logic → pdca-ai-coding (Operating on static baselines)
+        └── Independent tasks → jules-cli (Async PRs)
+```
 
-## 来源与致谢
+### Pattern 3: Asynchronous Swarm
+**Use Case**: Broad codebase audits, repetitive mechanical refactoring, or simultaneous changes across decoupled microservices.
+**Mechanism**: The main agent splits work into non-overlapping tasks and uses `jules-cli`'s batch dispatcher (`dispatch_prompt_pack.py`) to wake up multiple cloud agents in parallel.
+```
+Main Agent (or plan-doc-editor)
+  └── Generates Prompt Pack (Review/Implement templates)
+        └── dispatch_prompt_pack.py (Handles rate limits + safety gates)
+              ├── Worker 1 (Jules) → PR #101
+              ├── Worker 2 (Jules) → PR #102
+              └── Worker 3 (Jules) → PR #103
+```
 
-- **PDCA 框架**：Fork 自 [MarcherGA/pdca-ai-coding-skill](https://github.com/MarcherGA/pdca-ai-coding-skill)（基于 [Ken Judy 的 InfoQ 文章](https://www.infoq.com/articles/PDCA-AI-code-generation/)）。在原版基础上大幅扩展了 ATDD 门禁、Lite Mode、Circuit Breaker、会话模板、Discovery Ladder 等机制。
-- **Context Engineering 参照**：部分机制（渐进式加载、上下文退化防护、多 Agent 协调模式）参考了 [muratcankoylan/Agent-Skills-for-Context-Engineering](https://github.com/muratcankoylan/Agent-Skills-for-Context-Engineering)。
-- **plan-doc-editor** 和 **jules-cli** 为本项目原创。
+> **Routing Contract**: For the complete truth table on I/O boundaries and gate mappings between these components, see [`plan-doc-editor/references/integration-router.md`](plan-doc-editor/references/integration-router.md).
 
-## 安装
+## Attribution
 
-每个 Skill 的安装方式以其 `SKILL.md` 的 frontmatter `description` 字段为触发条件。将整个 Skill 目录放入 AI Agent 的 skills 目录即可。
+- **PDCA Framework**: Forked from [MarcherGA/pdca-ai-coding-skill](https://github.com/MarcherGA/pdca-ai-coding-skill) (based on [Ken Judy's InfoQ article](https://www.infoq.com/articles/PDCA-AI-code-generation/)). Extensively extended with ATDD gates, Lite Mode, Circuit Breaker, session templates, Discovery Ladder, and more.
+- **Context Engineering Reference**: Several mechanisms (progressive loading, context degradation prevention, multi-agent coordination patterns) were informed by [muratcankoylan/Agent-Skills-for-Context-Engineering](https://github.com/muratcankoylan/Agent-Skills-for-Context-Engineering).
+- **plan-doc-editor** and **jules-cli** are original to this project.
+
+## Installation
+
+Each Skill is triggered by the `description` field in its `SKILL.md` frontmatter. Place the entire Skill directory into your AI Agent's skills folder.
 
 ## License
 
-[MIT](LICENSE) — 原版 PDCA 框架由 Ken Judy 创建，扩展部分由 YiK1991 维护。
+[MIT](LICENSE) — Original PDCA framework by MarcherGA, extensions by YiK1991.
