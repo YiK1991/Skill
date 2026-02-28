@@ -37,7 +37,7 @@ The skill contains everything you need:
 ### Main Workflow (SKILL.md)
 - Working agreements to read before each session
 - 5-phase workflow explanation
-- Complexity variations (lightweight/full/emergency)
+- Complexity modes (lite/lightweight/full/emergency)
 - Tips for success and common pitfalls
 
 ### Reference Prompts (references/)
@@ -158,7 +158,7 @@ After 1 month of consistent use:
 - Read the Installation Guide troubleshooting section
 - Review the working agreements
 - Check the retrospective for common issues
-- Try the lightweight version for simple tasks
+- Try the Lite or Lightweight mode for simple tasks
 
 **Want to contribute?**
 - Do thorough retrospectives

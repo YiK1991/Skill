@@ -102,6 +102,14 @@ Ask yourself throughout the session:
 
 When AI agents run gate scripts (atdd_gate, doc_gate) in automated loops:
 
+### Exit Code Contract
+
+| Code | Meaning | Agent action |
+|------|---------|--------------|
+| 0 | PASS | Proceed |
+| 1 | FAIL (logic / self-repairable) | Self-repair allowed (up to max retries) |
+| 2 | FAIL (env/breaker — human-in-the-loop) | **Only when `PDCA_GATE_MAX_RETRIES>0`**. Stop immediately, escalate to human |
+
 ### Failure Classification
 
 | Type | Examples | Action |
@@ -114,7 +122,7 @@ When AI agents run gate scripts (atdd_gate, doc_gate) in automated loops:
 - Same-root-cause failures: **≤3 consecutive attempts**, then STOP
 - On stop: record `command + stderr/traceback + repo state` and escalate to human
 - Environment failures are NOT counted toward self-repair retries — escalate immediately
-- Enable via: `export PDCA_GATE_MAX_RETRIES=3` (scripts support optional circuit breaker)
+- Enable via: `export PDCA_GATE_MAX_RETRIES=3` (default: disabled, exitcode=2 never appears)
 
 ## Why These Matter
 

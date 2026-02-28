@@ -36,7 +36,7 @@ Complete session log showing JWT authentication implementation:
   - Duration: 2-3 hours
   - Multiple alternative approaches considered
 
-### Lightweight PDCA (Simple Tasks)
+### Lightweight PDCA (Simple Tasks with Behavior Change)
 - **Implementing an interface with clear examples**
   - Example: Adding new REST endpoint following existing pattern
   - Duration: 30-60 minutes
@@ -47,7 +47,13 @@ Complete session log showing JWT authentication implementation:
   - Duration: 30-45 minutes
   - Use patterns from analysis, quick planning
 
-### Emergency PDCA (Bug Fixes)
+### Lite PDCA (Trivial, No Behavior Change)
+- **Minor fixes that reuse existing patterns**
+  - Example: Fix validation message, rename constant
+  - Duration: 10-15 minutes
+  - TDD + commit only, skip all prompts
+
+### Emergency PDCA (Production Bug Fix)
 - **Production bug requiring immediate fix**
   - Example: Users can't log in
   - Duration: 15-30 minutes

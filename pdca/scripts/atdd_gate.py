@@ -51,8 +51,10 @@ from typing import Dict, List, Optional, Set, Tuple
 # === Circuit Breaker (optional, disabled by default) ===
 # Enable: PDCA_GATE_MAX_RETRIES=3
 # State:  PDCA_GATE_STATE_PATH=.pdca/gate_state.json (default)
+# TTL:    PDCA_GATE_TTL_SEC=1800 (default 30 min; 0 = no expiry)
 _MAX_RETRIES = int(os.environ.get("PDCA_GATE_MAX_RETRIES", "0"))
 _STATE_PATH = Path(os.environ.get("PDCA_GATE_STATE_PATH", ".pdca/gate_state.json"))
+_TTL_SEC = int(os.environ.get("PDCA_GATE_TTL_SEC", "1800"))
 
 
 def _error_signature(errors: List[str]) -> str:
@@ -72,7 +74,9 @@ def _load_breaker_state() -> dict:
 
 def _save_breaker_state(state: dict) -> None:
     _STATE_PATH.parent.mkdir(parents=True, exist_ok=True)
-    _STATE_PATH.write_text(json.dumps(state, indent=2), encoding="utf-8")
+    tmp = _STATE_PATH.with_suffix(".tmp")
+    tmp.write_text(json.dumps(state, indent=2), encoding="utf-8")
+    tmp.replace(_STATE_PATH)
 
 
 def _finalize_gate(
@@ -94,21 +98,33 @@ def _finalize_gate(
         sys.stdout.write("true\n")
         return 0
 
-    # Environment errors: exit 2, do not count toward retries
+    # Environment errors: do not count toward retries, escalate immediately
     if env_error:
-        print(f"[ENV_ERROR] {gate_name}: environment/infrastructure failure — do NOT self-repair", file=sys.stderr)
+        print(
+            f"[ENV_ERROR] {gate_name}: environment/infrastructure failure — do NOT self-repair",
+            file=sys.stderr,
+        )
         sys.stdout.write("false\n")
-        return 2
+        return 2 if _MAX_RETRIES > 0 else 1
 
     # Circuit breaker logic
     if _MAX_RETRIES > 0:
+        import time
+
+        now = time.time()
         sig = _error_signature(errors)
         state = _load_breaker_state()
         entry = state.get(gate_name, {})
-        if entry.get("sig") == sig:
+
+        # TTL check: if entry is stale, reset
+        if _TTL_SEC > 0 and entry.get("ts", 0) + _TTL_SEC < now:
+            entry = {"sig": sig, "count": 1, "ts": now}
+        elif entry.get("sig") == sig:
             entry["count"] = entry.get("count", 0) + 1
+            entry["ts"] = now
         else:
-            entry = {"sig": sig, "count": 1}
+            entry = {"sig": sig, "count": 1, "ts": now}
+
         state[gate_name] = entry
         _save_breaker_state(state)
 
@@ -122,6 +138,7 @@ def _finalize_gate(
 
     sys.stdout.write("false\n")
     return 1
+
 
 # === 配置项 ===
 MODE = os.environ.get("ATDD_MODE", "strict")  # strict / robust
@@ -252,7 +269,11 @@ class PlanItem:
 
     @property
     def is_active(self) -> bool:
-        return (self.status not in ["-", ">"]) and (not self.cancelled) and (not self.replaced)
+        return (
+            (self.status not in ["-", ">"])
+            and (not self.cancelled)
+            and (not self.replaced)
+        )
 
     def label(self) -> str:
         if self.item_id:
@@ -267,7 +288,9 @@ def _line_no_from_pos(text: str, pos: int) -> int:
 
 def read_plan_items(plan_path: Path) -> List[PlanItem]:
     items: List[PlanItem] = []
-    for idx, line in enumerate(plan_path.read_text(encoding="utf-8").splitlines(), start=1):
+    for idx, line in enumerate(
+        plan_path.read_text(encoding="utf-8").splitlines(), start=1
+    ):
         m = PLAN_ITEM_RE.match(line)
         if not m:
             continue
@@ -287,9 +310,19 @@ def read_plan_items(plan_path: Path) -> List[PlanItem]:
 
 def read_plan_from_git(base: str, plan_file: str) -> Optional[List[PlanItem]]:
     try:
-        mb = subprocess.run(["git", "merge-base", "HEAD", base], capture_output=True, text=True, check=True)
+        mb = subprocess.run(
+            ["git", "merge-base", "HEAD", base],
+            capture_output=True,
+            text=True,
+            check=True,
+        )
         merge_base = mb.stdout.strip()
-        show = subprocess.run(["git", "show", f"{merge_base}:{plan_file}"], capture_output=True, text=True, check=True)
+        show = subprocess.run(
+            ["git", "show", f"{merge_base}:{plan_file}"],
+            capture_output=True,
+            text=True,
+            check=True,
+        )
 
         items: List[PlanItem] = []
         for idx, line in enumerate(show.stdout.splitlines(), start=1):
@@ -323,7 +356,9 @@ def read_manifest(manifest_path: Path) -> List[str]:
     return names
 
 
-def extract_test_occurrences(tests_root: Path, globs_list: List[str]) -> List[TestOccurrence]:
+def extract_test_occurrences(
+    tests_root: Path, globs_list: List[str]
+) -> List[TestOccurrence]:
     occs: List[TestOccurrence] = []
     for pattern in globs_list:
         for p in tests_root.glob(pattern):
@@ -340,25 +375,49 @@ def extract_test_occurrences(tests_root: Path, globs_list: List[str]) -> List[Te
                     name = (m.group("name") or "").strip()
                     if not name:
                         continue
-                    occs.append(TestOccurrence(name=name, path=str(p), line=_line_no_from_pos(content, m.start())))
+                    occs.append(
+                        TestOccurrence(
+                            name=name,
+                            path=str(p),
+                            line=_line_no_from_pos(content, m.start()),
+                        )
+                    )
             elif suffix == ".go":
                 for m in GO_TEST_RE.finditer(content):
                     name = (m.group("name") or "").strip()
                     if not name:
                         continue
-                    occs.append(TestOccurrence(name=name, path=str(p), line=_line_no_from_pos(content, m.start())))
+                    occs.append(
+                        TestOccurrence(
+                            name=name,
+                            path=str(p),
+                            line=_line_no_from_pos(content, m.start()),
+                        )
+                    )
             elif suffix in (".java", ".kt"):
                 for m in JUNIT_DISPLAYNAME_RE.finditer(content):
                     name = (m.group("name") or "").strip()
                     if not name:
                         continue
-                    occs.append(TestOccurrence(name=name, path=str(p), line=_line_no_from_pos(content, m.start())))
+                    occs.append(
+                        TestOccurrence(
+                            name=name,
+                            path=str(p),
+                            line=_line_no_from_pos(content, m.start()),
+                        )
+                    )
             elif suffix == ".py":
                 for m in PY_DOCSTRING_RE.finditer(content):
                     name = (m.group("name") or "").strip()
                     if not name:
                         continue
-                    occs.append(TestOccurrence(name=name, path=str(p), line=_line_no_from_pos(content, m.start())))
+                    occs.append(
+                        TestOccurrence(
+                            name=name,
+                            path=str(p),
+                            line=_line_no_from_pos(content, m.start()),
+                        )
+                    )
 
     return occs
 
@@ -451,7 +510,9 @@ def update_plan(plan_path: Path, passed_keys: Set[str], reset: bool) -> None:
     plan_path.write_text("\n".join(out) + "\n", encoding="utf-8")
 
 
-def gate_a_parity(plan_items: List[PlanItem], test_index: Dict[str, List[TestOccurrence]]) -> Tuple[bool, List[str]]:
+def gate_a_parity(
+    plan_items: List[PlanItem], test_index: Dict[str, List[TestOccurrence]]
+) -> Tuple[bool, List[str]]:
     errors: List[str] = []
 
     # Plan active items + duplicates
@@ -461,7 +522,9 @@ def gate_a_parity(plan_items: List[PlanItem], test_index: Dict[str, List[TestOcc
     if USE_STABLE_ID == "on":
         missing_id = [it for it in active if not it.item_id]
         if missing_id:
-            errors.append("[Stable ID 缺失] ATDD_USE_STABLE_ID=on 要求所有 active 条目包含 ATDD-xxx：")
+            errors.append(
+                "[Stable ID 缺失] ATDD_USE_STABLE_ID=on 要求所有 active 条目包含 ATDD-xxx："
+            )
             for it in missing_id[:10]:
                 errors.append(f"  - L{it.line_no}: {it.raw_line.strip()}")
             if len(missing_id) > 10:
@@ -474,7 +537,9 @@ def gate_a_parity(plan_items: List[PlanItem], test_index: Dict[str, List[TestOcc
     c = Counter(keys)
     dups = [(k, n) for k, n in c.items() if n > 1]
     if dups:
-        errors.append("[Plan 重复 Key] 清单内部存在重复键（同一 ATDD-xxx 或同一文本键）：")
+        errors.append(
+            "[Plan 重复 Key] 清单内部存在重复键（同一 ATDD-xxx 或同一文本键）："
+        )
         for k, n in sorted(dups):
             lines = [f"L{it.line_no}" for it in active if it.key == k]
             errors.append(f"  - {k}: {n} 次 ({', '.join(lines)})")
@@ -509,7 +574,9 @@ def gate_a_parity(plan_items: List[PlanItem], test_index: Dict[str, List[TestOcc
             if len(occs) > 1:
                 violations.append((k, occs))
         if violations:
-            errors.append("[一对一违规] ATDD_PARAM_TESTS=off 要求每个条目恰好 1 个测试：")
+            errors.append(
+                "[一对一违规] ATDD_PARAM_TESTS=off 要求每个条目恰好 1 个测试："
+            )
             for k, occs in violations:
                 errors.append(f"  - {k}: {len(occs)} 个测试")
                 for oc in occs:
@@ -544,7 +611,10 @@ def gate_b_junit(
             if strict or STRICT_SKIPPED == "fail":
                 errors.append(f"[SKIPPED] {it.key} @ L{it.line_no}: {it.label()}")
             else:
-                print(f"[WARN] [SKIPPED] {it.key} @ L{it.line_no}: {it.label()}", file=sys.stderr)
+                print(
+                    f"[WARN] [SKIPPED] {it.key} @ L{it.line_no}: {it.label()}",
+                    file=sys.stderr,
+                )
         elif st in ("fail", "error"):
             errors.append(f"[{st.upper()}] {it.key} @ L{it.line_no}: {it.label()}")
         else:
@@ -561,38 +631,56 @@ def gate_b_junit(
     return all_passed, passed_keys, errors
 
 
-def gate_c_audit(current_items: List[PlanItem], base_items: List[PlanItem]) -> Tuple[bool, List[str]]:
+def gate_c_audit(
+    current_items: List[PlanItem], base_items: List[PlanItem]
+) -> Tuple[bool, List[str]]:
     errors: List[str] = []
 
     # 审计前提：active 必须有 ID
     for it in current_items:
         if it.is_active and not it.item_id:
-            errors.append(f"[审计真空] current active 条目缺少 ATDD-ID @ L{it.line_no}: {it.raw_line.strip()}")
+            errors.append(
+                f"[审计真空] current active 条目缺少 ATDD-ID @ L{it.line_no}: {it.raw_line.strip()}"
+            )
     for it in base_items:
         if it.is_active and not it.item_id:
-            errors.append(f"[审计真空] base active 条目缺少 ATDD-ID @ L{it.line_no}: {it.raw_line.strip()}")
+            errors.append(
+                f"[审计真空] base active 条目缺少 ATDD-ID @ L{it.line_no}: {it.raw_line.strip()}"
+            )
 
     if errors:
-        errors.append("[FATAL] Gate C 要求所有 active 条目必须包含 ATDD-ID，否则无法可靠审计")
+        errors.append(
+            "[FATAL] Gate C 要求所有 active 条目必须包含 ATDD-ID，否则无法可靠审计"
+        )
         return False, errors
 
     # 格式校验
     for it in current_items:
         if it.replaced:
             if not REPLACED_BY_RE.search(it.replaced):
-                errors.append(f"[格式错误] {it.item_id} @ L{it.line_no}: REPLACED 必须包含 'by: ATDD-xxx'")
+                errors.append(
+                    f"[格式错误] {it.item_id} @ L{it.line_no}: REPLACED 必须包含 'by: ATDD-xxx'"
+                )
         if it.cancelled:
             if "reason:" not in it.cancelled.lower():
-                errors.append(f"[格式错误] {it.item_id} @ L{it.line_no}: CANCELLED 必须包含 'reason:'")
+                errors.append(
+                    f"[格式错误] {it.item_id} @ L{it.line_no}: CANCELLED 必须包含 'reason:'"
+                )
 
     if errors:
         return False, errors
 
     base_active_ids = {it.item_id for it in base_items if it.is_active and it.item_id}
 
-    current_active_ids = {it.item_id for it in current_items if it.is_active and it.item_id}
-    current_cancelled_ids = {it.item_id for it in current_items if it.cancelled and it.item_id}
-    current_replaced_old_ids = {it.item_id for it in current_items if it.replaced and it.item_id}
+    current_active_ids = {
+        it.item_id for it in current_items if it.is_active and it.item_id
+    }
+    current_cancelled_ids = {
+        it.item_id for it in current_items if it.cancelled and it.item_id
+    }
+    current_replaced_old_ids = {
+        it.item_id for it in current_items if it.replaced and it.item_id
+    }
 
     # replaced targets
     replaced_targets: Dict[str, str] = {}
@@ -605,11 +693,17 @@ def gate_c_audit(current_items: List[PlanItem], base_items: List[PlanItem]) -> T
     accounted = current_active_ids | current_cancelled_ids | current_replaced_old_ids
     missing = base_active_ids - accounted
     if missing:
-        errors.append("[隐式删除] 以下基准 active 条目消失但未标记 CANCELLED/REPLACED：")
+        errors.append(
+            "[隐式删除] 以下基准 active 条目消失但未标记 CANCELLED/REPLACED："
+        )
         for mid in sorted(missing):
             errors.append(f"  - {mid}")
 
-    invalid_targets = [(old, new) for old, new in replaced_targets.items() if new not in current_active_ids]
+    invalid_targets = [
+        (old, new)
+        for old, new in replaced_targets.items()
+        if new not in current_active_ids
+    ]
     if invalid_targets:
         errors.append("[替换目标不存在或非 active]：")
         for old, new in sorted(invalid_targets):
@@ -618,7 +712,9 @@ def gate_c_audit(current_items: List[PlanItem], base_items: List[PlanItem]) -> T
     # CANCELLED/REPLACED 必须带旧 ID（按规则这里已满足，但保留防御）
     for it in current_items:
         if (it.cancelled or it.replaced) and not it.item_id:
-            errors.append("[缺少 ATDD-ID] CANCELLED/REPLACED 条目必须携带旧条目的 ATDD-ID")
+            errors.append(
+                "[缺少 ATDD-ID] CANCELLED/REPLACED 条目必须携带旧条目的 ATDD-ID"
+            )
 
     return len(errors) == 0, errors
 
@@ -628,7 +724,9 @@ def main() -> int:
     ap.add_argument("--plan", default="TEST_PLAN.md")
     ap.add_argument("--tests-root", default="tests/atdd")
     ap.add_argument("--glob", action="append", default=[])
-    ap.add_argument("--manifest", default="", help="测试名 manifest 文件（兜底；每行一个测试名）")
+    ap.add_argument(
+        "--manifest", default="", help="测试名 manifest 文件（兜底；每行一个测试名）"
+    )
     ap.add_argument("--junit", default="")
     ap.add_argument("--base-plan", default="", help="审计基准清单文件路径")
     ap.add_argument("--base", default="", help="git 基准（origin/main 等）")
@@ -664,13 +762,19 @@ def main() -> int:
         if names:
             if not occs:
                 # 无文件扫描结果时，manifest 作为唯一来源
-                occs = [TestOccurrence(name=n, path=str(mf), line=i + 1) for i, n in enumerate(names)]
+                occs = [
+                    TestOccurrence(name=n, path=str(mf), line=i + 1)
+                    for i, n in enumerate(names)
+                ]
                 print(f"[INFO] 使用 manifest: {len(names)} 个测试名", file=sys.stderr)
             else:
                 # 合并：避免一对一重复的假阳性，按 name 去重
                 seen = {o.name for o in occs}
                 add = [n for n in names if n not in seen]
-                occs.extend(TestOccurrence(name=n, path=str(mf), line=i + 1) for i, n in enumerate(add))
+                occs.extend(
+                    TestOccurrence(name=n, path=str(mf), line=i + 1)
+                    for i, n in enumerate(add)
+                )
                 print(f"[INFO] 合并 manifest: +{len(add)} 个新测试名", file=sys.stderr)
 
     test_index = build_test_key_index(occs)
@@ -711,18 +815,26 @@ def main() -> int:
     # Gate B
     junit_path = Path(args.junit) if args.junit else Path("test-results/junit.xml")
     if not junit_path.exists():
-        return _finalize_gate("gate_b", False, [f"[ERROR] JUnit XML not found: {junit_path}"], env_error=True)
+        return _finalize_gate(
+            "gate_b",
+            False,
+            [f"[ERROR] JUnit XML not found: {junit_path}"],
+            env_error=True,
+        )
 
     try:
         junit_status, junit_cases = parse_junit(junit_path)
     except Exception as exc:
         return _finalize_gate(
-            "gate_b", False,
+            "gate_b",
+            False,
             [f"[ERROR] JUnit XML parse failed: {exc}"],
             env_error=True,
         )
 
-    passed, passed_keys, errors = gate_b_junit(plan_items, junit_status, junit_cases, args.strict)
+    passed, passed_keys, errors = gate_b_junit(
+        plan_items, junit_status, junit_cases, args.strict
+    )
 
     if args.tick and (not args.dry_run):
         update_plan(plan_path, passed_keys, reset=args.reset)

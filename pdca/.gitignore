@@ -32,3 +32,9 @@ htmlcov/
 
 # Session logs (user-specific)
 session_*.md
+
+# Circuit breaker state (runtime)
+.pdca/
+
+# Backup files
+*.bak

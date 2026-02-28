@@ -41,12 +41,12 @@ From the InfoQ article's experiment:
 
 **Option 1: Download Release**
 1. Go to [Releases](https://github.com/your-org/pdca-ai-coding-skill/releases/latest)
-2. Download `SKILL.md`
+2. Download the latest release
 3. Upload to Claude.ai:
    - Open [Claude.ai](https://claude.ai)
    - Click **Skills** menu
    - Select **"Upload Skill"**
-   - Choose the downloaded `.skill` file
+   - Choose `SKILL.md`
 4. ✅ Ready to use!
 
 **Option 2: Build from Source**
@@ -73,8 +73,7 @@ Claude will guide you through:
 
 ```
 .
-├── SKILL.md          # Upload this to Claude.ai
-├── SKILL.md                      # Main skill documentation
+├── SKILL.md                      # Main skill file — upload to Claude.ai
 ├── references/                   # Prompt templates
 │   ├── working-agreements.md
 │   ├── analysis-prompt.md
@@ -144,7 +143,7 @@ python scripts/init_session.py "Feature name" --objective "What you're building"
 ### ❌ Don't Use For:
 - Quick prototypes or experiments
 - Trivial changes
-- Simple bug fixes (use lightweight version)
+- Simple bug fixes (use Lite or Lightweight mode)
 
 ## 💡 Why This Works
 
@@ -191,15 +190,13 @@ The PDCA skill works globally across all projects. For project-specific tech sta
 The skill is designed to be customized:
 
 ```bash
-# Extract and modify
-unzip SKILL.md -d custom-pdca/
+# Clone and customize
+git clone https://github.com/your-org/pdca-ai-coding-skill.git
+cd pdca-ai-coding-skill
 
 # Edit prompts in references/
 # Update working agreements
 # Adjust quality targets
-
-# Repackage (requires skill-creator tools)
-python package_skill.py custom-pdca/
 ```
 
 ## ❓ FAQ

@@ -342,36 +342,20 @@ The AI will:
 - Document patterns for future reference
 - Note learnings in your personal knowledge base
 
-## Complexity Variations
+## Complexity Modes
 
-### Lightweight (Simple, Well-Patterned Tasks)
+| Mode | When | Skip | Keep |
+|------|------|------|------|
+| **Lite** | Single-file, <50 lines, no behavior/interface change, reuse existing pattern | Analysis, Planning, Completion, Retrospective | TDD, Commit |
+| **Lightweight** | Small task with behavior change, clear existing patterns | Detailed analysis | TDD, Planning (simplified), Retrospective |
+| **Full** | Cross-system, architectural, novel domain, >50 lines | — | All 5 phases |
+| **Emergency** | Production down, requires immediate fix | Analysis | Reproduce-bug test → minimal fix → verify → root-cause doc |
 
-For implementing interfaces where clear examples exist:
-
-- **Skip** detailed analysis (use existing patterns)
-- **Simplify** planning (just TDD steps)
-- **Keep** TDD discipline
-- **Keep** retrospective
-
-### Full Version (Complex, Cross-System Tasks)
-
-For architectural changes, integrations, novel domains:
-
-- **Full** analysis with alternatives
-- **Detailed** planning with frequent checkpoints
-- **Strict** TDD with human review
-- **Comprehensive** completion check
-- **Deep** retrospective
-
-### Emergency Bug Fix
-
-For production issues requiring immediate fixes:
-
-- **Skip** analysis
-- **Plan**: Reproduce bug + minimal fix + verification
-- **TDD**: Write failing test exposing bug
-- **Check**: Verify fix + no regressions
-- **Act**: Document root cause and prevention
+**Mode selection rule:**
+1. ALL Lite Mode eligibility met (see above)? → **Lite**
+2. Existing pattern, simple task? → **Lightweight**
+3. Production fire? → **Emergency**
+4. Everything else → **Full**
 
 ## Tracking Metrics
 

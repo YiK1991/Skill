@@ -32,8 +32,10 @@ from typing import List, Optional, Sequence, Set, Tuple
 # === Circuit Breaker (optional, disabled by default) ===
 # Enable: PDCA_GATE_MAX_RETRIES=3
 # State:  PDCA_GATE_STATE_PATH=.pdca/gate_state.json (default)
+# TTL:    PDCA_GATE_TTL_SEC=1800 (default 30 min; 0 = no expiry)
 _MAX_RETRIES = int(os.environ.get("PDCA_GATE_MAX_RETRIES", "0"))
 _STATE_PATH = Path(os.environ.get("PDCA_GATE_STATE_PATH", ".pdca/gate_state.json"))
+_TTL_SEC = int(os.environ.get("PDCA_GATE_TTL_SEC", "1800"))
 
 
 def _error_signature(errors: List[str]) -> str:
@@ -53,7 +55,9 @@ def _load_breaker_state() -> dict:
 
 def _save_breaker_state(state: dict) -> None:
     _STATE_PATH.parent.mkdir(parents=True, exist_ok=True)
-    _STATE_PATH.write_text(json.dumps(state, indent=2), encoding="utf-8")
+    tmp = _STATE_PATH.with_suffix(".tmp")
+    tmp.write_text(json.dumps(state, indent=2), encoding="utf-8")
+    tmp.replace(_STATE_PATH)
 
 
 def _finalize_gate(
@@ -80,16 +84,25 @@ def _finalize_gate(
             file=sys.stderr,
         )
         sys.stdout.write("false\n")
-        return 2
+        return 2 if _MAX_RETRIES > 0 else 1
 
     if _MAX_RETRIES > 0:
+        import time
+
+        now = time.time()
         sig = _error_signature(errors)
         state = _load_breaker_state()
         entry = state.get(gate_name, {})
-        if entry.get("sig") == sig:
+
+        # TTL check: if entry is stale, reset
+        if _TTL_SEC > 0 and entry.get("ts", 0) + _TTL_SEC < now:
+            entry = {"sig": sig, "count": 1, "ts": now}
+        elif entry.get("sig") == sig:
             entry["count"] = entry.get("count", 0) + 1
+            entry["ts"] = now
         else:
-            entry = {"sig": sig, "count": 1}
+            entry = {"sig": sig, "count": 1, "ts": now}
+
         state[gate_name] = entry
         _save_breaker_state(state)
 

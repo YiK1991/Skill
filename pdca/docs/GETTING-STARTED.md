@@ -12,17 +12,15 @@ You're about to revolutionize how you work with AI coding assistants. This frame
 
 ## 📦 What You Have
 
-You received **6 files** - here's what each one does:
+Key pieces in this package:
 
 | File | Purpose | When to Use |
 |------|---------|-------------|
-| **SKILL.md** | The actual skill file | Upload to Claude.ai immediately |
-| **README.md** | Package overview | Read first to understand what you got |
-| **GETTING-STARTED.md** | This file! | Your quick start guide |
-| **references/working-agreements.md** | One-page cheat sheet | Print and keep at desk |
-| **SKILL.md** | Detailed guide | Reference during first sessions |
-| **docs/REFINEMENTS-V1.1.md** | Full documentation | Deep dive on methodology |
-| **references/*.md** | Backup prompts | If not using skill version |
+| **SKILL.md** | The skill file | Upload to Claude.ai immediately |
+| **references/working-agreements.md** | Core principles cheat sheet | Print and keep at desk |
+| **references/*.md** | Phase prompts | Loaded during PDCA phases |
+| **docs/GETTING-STARTED.md** | This file! | Your quick start guide |
+| **docs/REFINEMENTS-V1.1.md** | Deep-dive methodology | Reference when needed |
 
 ---
 
@@ -222,47 +220,31 @@ Creates a log file to fill in as you work.
 
 ---
 
-## 🎨 Complexity Variations
+## 🎨 Complexity Modes
 
-**Not all tasks are equal!** Use the right version:
+**Not all tasks are equal!** Use the right mode:
 
-### 🟢 Lightweight (Simple, Routine Tasks)
-**When:** Implementing interface with clear examples
+### ⚪ Lite (Trivial, No Behavior Change)
+**When:** <50 lines, single file, reuse existing pattern, no interface change
+**Skip:** All prompts — just TDD + commit
+**Example:** "Fix typo in validation message"
+
+### 🟢 Lightweight (Simple, Existing Patterns)
+**When:** Small task with behavior change, clear existing examples
 **Skip:** Detailed analysis
 **Keep:** TDD + retrospective
 **Example:** "Add new REST endpoint like existing ones"
 
 ### 🟡 Full (Complex, Novel Tasks)
-**When:** New integrations, architectural changes
+**When:** New integrations, architectural changes, >50 lines
 **Use:** All 5 phases fully
 **Example:** "Integrate new payment provider"
 
-### 🔴 Emergency (Bug Fixes)
+### 🔴 Emergency (Production Bug Fix)
 **When:** Production is down
 **Skip:** Analysis
-**Focus:** Reproduce bug test → minimal fix
+**Focus:** Reproduce bug test → minimal fix → verify
 **Example:** "Users can't login right now"
-
----
-
-## 📈 What Success Looks Like
-
-### After 1 Week
-- ✅ Comfortable with workflow
-- ✅ Catching AI errors early
-- ✅ Smaller, better commits
-
-### After 1 Month
-- ✅ Metrics trending green
-- ✅ Fewer regressions
-- ✅ Faster code reviews
-- ✅ Refined your prompts
-
-### After 3 Months
-- ✅ Significantly better code quality
-- ✅ Faster feature delivery
-- ✅ Less debugging time
-- ✅ Team wants to adopt it too
 
 ---
 
@@ -286,11 +268,12 @@ Stop. Write the failing test first.
 Just load references/implementation-prompt.md for now
 ```
 
-### "Not sure when to use full vs lightweight"
+### "Not sure which mode to use"
 **Solution:** Use this rule:
-- New pattern → Full version
-- Existing pattern → Lightweight
-- Production bug → Emergency version
+- <50 lines + no behavior change → **Lite**
+- Existing pattern + behavior change → **Lightweight**
+- Novel / complex → **Full**
+- Production bug → **Emergency**
 
 ### "AI doesn't know my project stack"
 **Solution:** Either:
