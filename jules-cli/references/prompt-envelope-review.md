@@ -254,3 +254,34 @@
 | 代码质量审查 | 日常维护、技术债   | 函数长度、嵌套、DRY、异常处理        |
 | 文档审查     | 发布前、交接       | docstring、README、注释质量          |
 | CI/测试审查  | 测试失败、覆盖不足 | 测试覆盖、测试质量、CI 配置          |
+| **state-audit** | **进入 DESIGNING 前（G-SYNC）** | 现状快照、冲突/重复事实清单、缺口 |
+
+---
+
+## State-Audit 标准任务（G-SYNC 外溢到 Jules）
+
+> **触发条件**：plan-doc-editor G-SYNC gate（进入 DESIGNING 前）或整治已有 plan module 前。可直接复制此段构造一个 Jules review 任务。
+
+**§0 Meta（固定值）**
+```yaml
+intent: review
+scope: state-audit
+output_path: <plan_module>/investigation/INV-000_state_audit.md
+```
+
+**§1 Objective（固定输出格式）**
+Jules 作为只读审计员：读 INDEX/CURRENT 表格段 + 两个 `_tracker.md` active/blocked 行，输出：
+1. **Facts（现状快照）**：各 B/INV 的实际状态（与 tracker 对比）
+2. **Conflicts & Resolutions**：文档间冲突/重复事实（标 `superseded_by` 或 `still-open`）
+3. **Gaps（缺口清单）**：未记录决策、过期 INV、缺 anchor 的交叉引用
+4. **Next-Step Triggers**：建议通过后进入哪个 Workflow
+
+**输出文件**：固定为 `<plan_module>/investigation/INV-000_state_audit.md`
+
+**§3 检查清单（state-audit 专用）**
+- [ ] INDEX/CURRENT 里的 status 与 tracker 一致
+- [ ] 所有 active INV 的 as_of 是否过期
+- [ ] CURRENT.md Head/Tail Anchor 是否描述当前最新状态
+- [ ] 跨文件 RefSpec 是否有断链（锚点不存在）
+- [ ] 重复事实是否已 canonicalize 或标记 superseded_by
+

@@ -55,10 +55,8 @@ jules_pack/                           # ← 路径由 orchestrator 指定
 - related plan module: <path/to/plan_module/>
 - conventions:
   - Project rules: `gemini.md`, `agent.md`, `rules.md`（Jules 执行每个 task 前必须先读取根目录及涉及模块下的规范文件）
-  - Output contract (Core): `.agent/skills/plan-doc-editor/references/integration-router.md`（统一输出字段 + 证据标准）
-  - PDCA extended fields: `.agent/skills/pdca-ai-coding/references/output-contract.md`（PDCA 附加字段）
-  - Integration router: `.agent/skills/plan-doc-editor/references/integration-router.md`（统一路由、门禁映射、Gate-J）
-  - Disclosure rule: `.agent/skills/jules-cli/references/plan-as-skill-integration.md`（披露式上下文、回流字段）
+  - Core Worker Contract + 路由门禁: `.agent/skills/plan-doc-editor/references/integration-router.md`（统一输出字段、证据标准、Gate-J）
+  - 披露式上下文规则: `.agent/skills/jules-cli/references/plan-as-skill-integration.md`（最小必读 + 回流字段）
 - run_id: <RUN-ID>
 - result_flow: PR-only（所有结果通过 PR 推送，禁止 local pull）
 
