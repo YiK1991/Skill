@@ -87,7 +87,7 @@ PR-7 (✅) ← standalone
 
 ### Open Questions (Q-*)
 
-- **Q-001**: check_suite_consistency.py 扫哪些 pattern？（建议：direct submit / --parallel / echo | jules / GATE-2a 等旧术语）
+- **Q-001**: check_suite_consistency.py 扫哪些 pattern？（已落地：direct submit / --parallel / echo|jules / origin/main 等旧术语）
 
 ## §6 Iteration Log
 | Date | Trigger Event | Action | Impact |

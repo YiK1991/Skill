@@ -6,6 +6,15 @@ description: This skill should be used when the user asks to "restructure a plan
 
 Restructure **complex plans too long for one context window** into layered modules. Never simplify away details — restructure so humans and AI load only needed context.
 
+## Cold-start vs Warm-start (choose before proceeding)
+
+| Mode | Trigger | Action |
+|------|---------|--------|
+| **Cold-start** | First time seeing this plan module / no recent state audit / change_log shows major changes / obvious conflicts | **G-SYNC first**: Pass0 (INDEX+CURRENT+trackers) → write INV-000 state audit → update CURRENT §1 + change_log → then design |
+| **Warm-start** | Recent state audit exists + small scope (≤1 B file / few refs) | **Direct execution**: INDEX+CURRENT + active rows → PDCA Lite / Jules task → Plan Update Targets |
+
+> Project context discovery: follow `repo-contract-priority.md` (gemini/agent/rules → architecture → plan module → .claude optional).
+
 ## PD Protocol (Two-Pass Loading)
 
 Every interaction with a plan module follows **two passes**:

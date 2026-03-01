@@ -4,7 +4,16 @@ description: Structured Plan-Do-Check-Act, PDCA, framework for AI code generatio
 ---
 # PDCA AI Coding Framework
 
-Structured workflow for high-quality AI-assisted code generation using Plan-Do-Check-Act principles.
+Structured workflow for high-quality AI-assisted code generation using Plan-Do-Check-Act principles.\r
+\r
+## Cold-start vs Warm-start (choose before proceeding)\r
+\r
+| Mode | Trigger | Action |\r
+|------|---------|--------|\r
+| **Cold-start** | First time in this repo / no recent analysis / major architectural change / plan-doc-editor module present but no state audit | **Full Analysis first**: scan repo contract priority (gemini/agent/rules → architecture → .claude optional) → PDCA Analysis phase → plan before code |\r
+| **Warm-start** | Familiar codebase + small well-understood change (≤1 feature / ≤5 files) | **Lite Mode eligible**: skip to Lite Mode below if all eligibility criteria met |\r
+\r
+> Project context discovery: follow `repo-contract-priority.md` (see pdca-ai-coding/references/).
 
 ## When to Use This Skill
 

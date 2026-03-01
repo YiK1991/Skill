@@ -14,6 +14,15 @@ description: >-
 
 Submit asynchronous tasks to Jules, track status, review results via PR, and iterate.
 
+## Cold-start vs Warm-start (choose before proceeding)
+
+| Mode | Trigger | Action |
+|------|---------|--------|
+| **Cold-start** | First time dispatching to this repo / no recent pack / major plan changes | **Prep first**: verify repo contract (gemini/agent/rules), confirm pack structure (PACK.md + tasks/), run pre-flight checklist below |
+| **Warm-start** | Familiar repo + existing pack + incremental tasks | **Direct dispatch**: update PACK.md pending tasks → `dispatch_prompt_pack.py` → gates handle the rest |
+
+> All submit operations go through `dispatch_prompt_pack.py` (dispatch-only invariant). Bridge is for status/wait/approve only.
+
 ## Roles
 
 - **Jules** — Lightweight executor / patch generator (review, research, test, small fixes)
