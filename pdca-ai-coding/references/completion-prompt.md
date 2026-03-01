@@ -93,6 +93,28 @@ FINAL RECITATION (≤7 lines):
 - Constraints/risks:
 - Key pointers (RefSpec):
 
+REVIEW REPORT (lightweight — if plan-doc-editor environment detected):
+
+⛔ REDACT RULE: any suspected key/token → ***REDACTED***.
+   Never echo env var values. Never output full request headers.
+
+Detection: if ancestor directories contain CURRENT.md AND
+investigation/ AND questions/ directories → treat as plan module.
+
+Issue Index:
+| # | Severity | Status | Title | RefSpec |
+|---|----------|--------|-------|---------|
+
+Evidence Pointers (RefSpec):
+- [top 3-5 pointers]
+
+Plan Update Targets (RefSpec + ≤3-line edits):
+| Target file | Suggested edit |
+|-------------|---------------|
+
+→ Persist to investigation/INV-<Q-NNN or Bxxx>_local_review.md
+→ Missing context / architecture unclear: STOP + write questions/Q-NNN_*
+
 CONSOLIDATION (Invalidate but don't discard):
 - If any investigation note was created/updated:
   - Ensure Consolidation Record is filled (extracted_to / invalidated / archived_at).

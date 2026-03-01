@@ -11,6 +11,7 @@ updated: YYYY-MM-DD
 prerequisites: []          # Dynamic pointer: B### IDs that must be DONE before this batch
 impact_refs: []            # Dynamic pointer: references/P*.md#anchor RefSpecs
 related_investigations: [] # Dynamic pointer: INV-### or investigation/INV-*.md RefSpecs
+review: none               # none | local | required_jules
 cross_refs:
   tracker: execution/_tracker.md
   current: CURRENT.md

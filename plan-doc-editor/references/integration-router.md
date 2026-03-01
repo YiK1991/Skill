@@ -38,7 +38,7 @@
 
 | Skill | 前置门禁 | 执行中门禁 | 完成门禁 |
 |-------|---------|-----------|---------|
-| plan-doc-editor | G-INV → G-DESIGN → G-READY | — | G-CLOSED (DoD) |
+| plan-doc-editor | G-INV → G-DESIGN → G-READY | Gate-R (review:local→本地report / review:required_jules→委托Gate-J) | G-CLOSED (DoD) |
 | PDCA | Gate A (parity) | Gate B (JUnit) + Gate C (audit) | Gate D (docs) |
 | jules-cli | GATE-1 (pending) + GATE-2 (ASCII) + GATE-3 (smoke) + GATE-6 (branch) | — | Gate-J (review PR merged) |
 
@@ -48,7 +48,21 @@
 - **产物路径**：`<plan_module>/investigation/INV-*_jules_review.md`（固定在计划模块内，不允许全局 docs 目录）
 - **产物内容**：必须包含统一输出字段（Read/Write/Evidence/Plan Update Targets）+ RefSpec 格式
 - **通过**：Review PR 已 merge 且无 🔴 Critical issues 未解决
-- **失败**：B file 回退为 `blocked`，写 `questions/Q-NNN` 阻塞 tracker
+- **失败**：B file 回退为 `BLOCKED(Q-NNN)`，写 `questions/Q-NNN` 阻塞 tracker
+
+## Gate-R 定义（本地 review gate）
+
+- **触发**：B file frontmatter 含 `review: local` 或 `review: required_jules`
+- **产物路径**：
+  - `review: local` → `<plan_module>/investigation/INV-*_local_review.md`
+  - `review: required_jules` → **委托 Gate-J**：Gate-R 只检查“是否存在 Gate-J 产物且 Gate-J 已通过”，不重复审查
+- **产物内容**：必须包含统一输出字段 + Issue Index（含 **Status 列**：`open`/`fixed`/`accepted`/`follow-up`）+ Plan Update Targets
+- **通过条件（可计算）**：
+  - 🔴 且 Status=`open` → **fail**
+  - 🔴 且 Status=`follow-up` → **fail**（除非 follow-up 已在计划中落点，RefSpec 指向 B-file 或 Q-NNN）
+  - 🔴 且 Status=`fixed`/`accepted` → **pass**（`accepted` 必须有 RefSpec 记录风险接受点）
+  - 无 🔴 → **pass**
+- **失败动作**：创建/更新 `questions/Q-NNN_review_*` 并在 tracker 写 `BLOCKED(Q-NNN)`
 
 ## 回流协议
 

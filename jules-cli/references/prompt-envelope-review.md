@@ -36,6 +36,7 @@
 
 ## 0) Meta
 - task_id: TASK-XXX
+- q_id: Q-NNN              # 强烈建议：回链发射井 ID
 - intent: review | research
 - scope: (one aspect only — 例如：系统架构审查 / 安全评估 / 命名规范检查 / 性能审计)
 - repo: <owner/repo>
@@ -238,6 +239,25 @@
 
 请停止，输出缺失项清单，等待反馈。
 ```
+
+## 7) Context7 外部依赖校验（可选）
+
+> ⛔ **REDACT RULE**: 任何疑似密钥/Token 一律 `***REDACTED***`。Evidence 允许 libraryId/版本/来源路径/摘录；禁止请求头/curl/含 token 的变量。
+
+**触发条件**（按优先级）：
+1. Q 中有 `deps_to_verify` → **必跑**
+2. diff 触及外部依赖（import/SDK/config 变更）→ **必跑**
+3. Reviewer 怀疑 API 过时 → **可选**（限最多 1-2 次查询）
+
+**动作**：
+1. 调用 `scripts/context7_api.cjs search "<库名>" "<query>"` 获取 libraryId
+2. 调用 `scripts/context7_api.cjs context "<libraryId>" "<query>"` 获取文档片段
+3. 比对 diff 中的用法 vs 文档 → 结论进入 Issue Index
+4. 文档片段/来源进入 Evidence Pointers
+
+**失败降级**：Context7 查询失败（429/5xx）→ Evidence 记 "Context7 unavailable"，不因此 fail Gate；将相关项降级为 🟡（除非安全/认证关键路径）。
+
+**边界**：Context7 仅用于裁决外部依赖正确性，不用于裁决内部架构。
 
 ---
 
