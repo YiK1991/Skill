@@ -11,7 +11,7 @@ Default discovery protocol for all PDCA phases. Prevents blind file exploration 
 
 | Step | Action | Tools | Output |
 |------|--------|-------|--------|
-| 0 | **Static Baseline Scan** (≤2 min) | read file | `.claude/instructions.md`, `gemini.md`, README/docs index, test entrypoints |
+| 0 | **Static Baseline Scan** (≤2 min) | read file | `gemini.md`/`agent.md`/`rules.md`, `ARCHITECTURE.md`, README/docs index, test entrypoints, `.claude/instructions.md` (optional override) |
 | 1 | **Structure Discovery** | `ls` / `glob` | Map folders; identify likely files |
 | 2 | **Keyword/ID Search** | `rg` / `grep` | Exact tokens (class/function/route/error string) |
 | 3 | **Header Scan** (cheap validation) | read file (first ≤30 lines) | Headings, signatures, imports of candidate files |

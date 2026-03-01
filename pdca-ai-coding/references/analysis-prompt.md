@@ -17,28 +17,32 @@ ANALYSIS PHASE - Business Problem and Technical Approach
 STEP 0: PROJECT CONTEXT VERIFICATION (30 seconds)
 ────────────────────────────────────────────────────
 
-Before analysis, verify project-specific context:
+Before analysis, scan for project context following Repo Contract Priority
+(see: references/repo-contract-priority.md):
 
-🔍 CHECKING FOR PROJECT CONFIGURATION:
-   - Look for .claude/instructions.md in project root
-   - Check if project has specific tech stack or conventions documented
+🔍 SCAN ORDER (accumulate, don't block):
+   1. `gemini.md` / `agent.md` / `rules.md` (root + module)
+   2. `ARCHITECTURE.md` / `CLAUDE.md` / `docs/architecture/**` / `docs/boundaries/**`
+   3. plan-doc-editor module (INDEX → CURRENT → trackers active rows) if present
+   4. `.claude/instructions.md` (optional override — append constraints if found)
+   5. README / docs index / test entrypoints
 
-📋 IF .claude/instructions.md EXISTS:
+📋 IF ANY CONTEXT FOUND (priorities 1–4):
    ✅ Read and acknowledge the project guidelines
    ✅ Follow the tech stack specified (framework, language, patterns)
    ✅ Respect any architectural constraints or conventions
    ✅ Note any team-specific practices
-   
-❓ IF NO .claude/instructions.md FOUND:
+
+❓ IF NO PROJECT CONTEXT FOUND AT ALL (priorities 1–4 empty):
    Ask the human for essential project context:
-   
-   "I don't see a .claude/instructions.md file with project guidelines.
-   
+
+   "I didn't find project configuration files (gemini.md, ARCHITECTURE.md, etc.).
+
    Before we proceed, please tell me:
    • What's your tech stack? (e.g., Next.js 14, TypeScript, Prisma)
    • Any architectural patterns to follow? (e.g., Clean Architecture, MVC)
    • Any conventions or constraints? (e.g., use functional components only)
-   
+
    Or just say 'proceed' and I'll use best practices for your objective."
 
 💡 NOTE: This quick context check prevents hours of rework later!
@@ -156,7 +160,7 @@ Include a "Read List (RefSpec)" section: list all files/sections deep-read durin
 
 The AI should provide:
 
-1. **Project Context** - Acknowledgment of .claude/instructions.md or request for context
+1. **Project Context** - Repo contract scan results (gemini.md/ARCHITECTURE.md/plan module/.claude)
 2. **Existing Patterns** - 2-3 concrete examples with file paths
 3. **Architecture** - Clear description of layers, abstractions, DI patterns
 4. **Configuration** - Where and how this feature should be configured
@@ -167,7 +171,7 @@ The AI should provide:
 
 After receiving the analysis:
 
-1. ✅ **Provide project context** - If requested and no .claude/instructions.md exists
+1. ✅ **Provide project context** - If requested and no project config files found
 2. ✅ **Review thoroughly** - Check that patterns cited actually exist
 3. ✅ **Ask clarifying questions** - If anything is unclear or missing
 4. ✅ **Provide additional context** - Share domain knowledge the AI lacks
@@ -191,7 +195,7 @@ If you see these, ask the AI to dig deeper before proceeding.
 Human: Load references/analysis-prompt.md and analyze: 
 Add user authentication with JWT tokens to our REST API
 
-AI: [Checks for .claude/instructions.md, finds Next.js + TypeScript project config]
+AI: [Scans repo contract priority: finds gemini.md + ARCHITECTURE.md with Next.js + TypeScript config]
 [Provides detailed analysis searching for existing auth patterns, 
 documenting API layers, proposing JWT vs OAuth vs session approaches, 
 recommending JWT with refresh tokens based on existing patterns and project stack]

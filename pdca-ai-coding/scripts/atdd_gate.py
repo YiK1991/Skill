@@ -29,7 +29,10 @@
   python3 scripts/atdd_gate.py --plan TEST_PLAN.md --tests-root tests/atdd \
     --junit test-results/junit.xml --tick --strict
 
-  # Gate C (审计：git 基准)
+  # Gate C (审计：git 基准 — auto-detect)
+  python3 scripts/atdd_gate.py --plan TEST_PLAN.md --audit --strict
+
+  # Gate C (审计：显式 git 基准)
   python3 scripts/atdd_gate.py --plan TEST_PLAN.md --base origin/main --audit --strict
 
   # Gate C (审计：文件基准)
@@ -55,6 +58,24 @@ from typing import Dict, List, Optional, Set, Tuple
 _MAX_RETRIES = int(os.environ.get("PDCA_GATE_MAX_RETRIES", "0"))
 _STATE_PATH = Path(os.environ.get("PDCA_GATE_STATE_PATH", ".pdca/gate_state.json"))
 _TTL_SEC = int(os.environ.get("PDCA_GATE_TTL_SEC", "1800"))
+
+
+def _resolve_base(requested: str) -> str:
+    """Auto-detect base branch if requested=='auto'."""
+    if requested != "auto":
+        return requested
+    candidates = ["origin/main", "origin/master", "main", "master"]
+    for ref in candidates:
+        try:
+            subprocess.run(
+                ["git", "rev-parse", "--verify", ref],
+                capture_output=True,
+                check=True,
+            )
+            return ref
+        except (subprocess.CalledProcessError, FileNotFoundError, OSError):
+            continue
+    return "HEAD~1"
 
 
 def _error_signature(errors: List[str]) -> str:
@@ -736,7 +757,7 @@ def main() -> int:
     )
     ap.add_argument("--junit", default="")
     ap.add_argument("--base-plan", default="", help="审计基准清单文件路径")
-    ap.add_argument("--base", default="", help="git 基准（origin/main 等）")
+    ap.add_argument("--base", default="auto", help="git 基准（auto/origin/main 等）")
 
     ap.add_argument("--parity-only", action="store_true")
     ap.add_argument("--tick", action="store_true")
@@ -798,8 +819,9 @@ def main() -> int:
     if args.audit:
         base_items: Optional[List[PlanItem]] = None
 
-        if args.base:
-            base_items = read_plan_from_git(args.base, args.plan)
+        resolved_base = _resolve_base(args.base)
+        if resolved_base:
+            base_items = read_plan_from_git(resolved_base, args.plan)
             if not base_items:
                 msg = f"[ERROR] Failed to read plan from git base: {args.base}"
                 if args.strict:

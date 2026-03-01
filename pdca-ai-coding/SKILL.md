@@ -69,7 +69,7 @@ For a standard coding session:
 
 **Full agreements in references/working-agreements.md - read before each session!**
 
-**Note:** This skill works globally across all your projects. For project-specific configuration (tech stack, conventions), you can optionally create a `.claude/instructions.md` file in your project root. The Analysis phase will automatically check for and use this configuration.
+**Note:** This skill works globally across all your projects. Project context is discovered automatically via Repo Contract Priority (see `references/repo-contract-priority.md`): `gemini.md`/`agent.md`/`rules.md` first, then architecture docs, then `.claude/instructions.md` as optional override.
 
 **Core Principles:**
 

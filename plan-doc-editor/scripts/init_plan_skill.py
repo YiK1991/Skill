@@ -5,9 +5,12 @@ Usage:
   python init_plan_skill.py <target_dir> <module_slug> "<plan_title>"
 
 Recommended target_dir:
-  - 00_Documentation/99_Inbox/   (new draft intake)
-  - 00_Documentation/98_WIP/     (active drafting)
-  - 00_Documentation/06_Topics/  (published topic)
+  - plans/                          (generic project root)
+  - docs/plans/                     (docs-oriented projects)
+  - <any>/plan_modules/             (nested within feature area)
+  Legacy examples (project-specific, not for general use):
+  - 00_Documentation/99_Inbox/      (ERP project intake)
+  - 00_Documentation/98_WIP/        (ERP active drafting)
 
 It creates:
   <target_dir>/<module_slug>/
