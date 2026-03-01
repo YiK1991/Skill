@@ -1,0 +1,5 @@
+# A0_entity_registry.yaml
+# Purpose: maintain entity consistency across investigations.
+# See references/entity-registry.md for usage rules.
+
+entities: []

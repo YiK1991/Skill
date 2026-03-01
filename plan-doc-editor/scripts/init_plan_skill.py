@@ -252,6 +252,24 @@ def main(target_dir: str, module_slug: str, title: str):
         with open(path, "w", encoding="utf-8") as f:
             f.write(content)
 
+    # SKILL.md shim (navigation-only entry point)
+    skill_shim = (
+        "---\n"
+        f"name: {title} — Plan Module Entry\n"
+        "description: Navigation shim. Do not write decisions here.\n"
+        "---\n\n"
+        f"# {title} — Plan Module Entry (Shim)\n\n"
+        "## Read Order (Cold-start)\n"
+        "1. [INDEX.md](INDEX.md) — Pass0 only: headings + tables\n"
+        "2. [CURRENT.md](CURRENT.md) — Pass0 only: status + links\n"
+        "3. [execution/_tracker.md](execution/_tracker.md) — active/blocked rows only\n"
+        "4. [investigation/_tracker.md](investigation/_tracker.md) — active/blocked rows only\n\n"
+        "## Do NOT write decisions here\n"
+        "This file is navigation only. Put decisions in `references/P*.md` "
+        "and log changes in `change_log.md`.\n"
+    )
+    _write(topic_dir, "SKILL.md", skill_shim)
+
     print(topic_dir)
 
 
