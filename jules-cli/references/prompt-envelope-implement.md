@@ -129,10 +129,10 @@
 3) Plan disclosure rule: `.agent/skills/jules-cli/references/plan-as-skill-integration.md`
 
 ### Output Contract (REQUIRED Core fields; exact names; RefSpec only)
-{{ HYDRATE: .agent/skills/pdca-ai-coding/references/output-contract.md:L8-L13 }}
+{{ HYDRATE: ${SKILLS_DIR}/pdca-ai-coding/references/output-contract.md:L8-L13 }}
 
 ### Integration Router (gates + Gate-J definition)
-{{ HYDRATE: .agent/skills/plan-doc-editor/references/integration-router.md:L17-L44 }}
+{{ HYDRATE: ${SKILLS_DIR}/plan-doc-editor/references/integration-router.md:L17-L44 }}
 
 ### Stop Conditions (do NOT "guess and patch")
 - If required files are missing, rules conflict, or scope is ambiguous: STOP and report with Evidence Pointers.

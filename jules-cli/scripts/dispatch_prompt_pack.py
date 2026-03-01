@@ -1,4 +1,4 @@
-#!/usr/bin/env python3
+﻿#!/usr/bin/env python3
 """Dispatch a Prompt Pack (tasks/*.md) via jules_bridge.
 
 Gates block submission before any API call is made:
@@ -31,6 +31,14 @@ import sys
 import tempfile
 import time
 from typing import Any, Dict, List, Set, Tuple
+
+# --------------- Skill Root Auto-Discovery (for HYDRATE ${SKILLS_DIR}) -------
+# __file__ is jules-cli/scripts/dispatch_prompt_pack.py
+# SKILL_ROOT -> jules-cli/
+# ALL_SKILLS_DIR -> 029_Skill_Development/ (or wherever skills are installed)
+_SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
+_SKILL_ROOT = os.path.dirname(_SCRIPT_DIR)  # jules-cli/
+_ALL_SKILLS_DIR = os.path.dirname(_SKILL_ROOT)  # parent of all skills
 
 # --------------- Encoding: force UTF-8 on Windows (GBK default) ---------------
 if sys.platform == "win32":
@@ -248,6 +256,7 @@ def ensure_utf8_strict(pack_dir: str, task_files: List[str]) -> List[str]:
         files_to_check.insert(0, pack_md)
 
     failures = []
+    auto_converted = []
     for fpath in files_to_check:
         try:
             with open(fpath, "rb") as fh:
@@ -256,31 +265,87 @@ def ensure_utf8_strict(pack_dir: str, task_files: List[str]) -> List[str]:
             failures.append(f"  {fpath}: cannot read ({exc})")
             continue
 
+        # --- Auto-transcode: detect non-UTF-8 encodings and convert ---
+        converted_from = None
+
+        # Check 1: UTF-8 BOM → strip it
         has_bom = raw.startswith(b"\xef\xbb\xbf")
         if has_bom:
             raw = raw[3:]
 
+        # Check 2: UTF-16 LE BOM (\xff\xfe) — common from PowerShell Set-Content
+        if not has_bom and raw[:2] == b"\xff\xfe":
+            try:
+                text = raw.decode("utf-16-le")
+                raw = text.lstrip("\ufeff").encode("utf-8")
+                converted_from = "UTF-16 LE"
+            except (UnicodeDecodeError, UnicodeEncodeError):
+                pass  # fall through to strict check
+
+        # Check 3: UTF-16 BE BOM (\xfe\xff)
+        if not converted_from and not has_bom and raw[:2] == b"\xfe\xff":
+            try:
+                text = raw.decode("utf-16-be")
+                raw = text.lstrip("\ufeff").encode("utf-8")
+                converted_from = "UTF-16 BE"
+            except (UnicodeDecodeError, UnicodeEncodeError):
+                pass
+
+        # Check 4: High null-byte ratio = likely UTF-16 without BOM
+        if not converted_from and not has_bom and len(raw) > 10:
+            null_ratio = raw.count(b"\x00") / len(raw)
+            if null_ratio > 0.25:
+                # Try UTF-16 LE first (more common on Windows), then BE
+                for enc in ("utf-16-le", "utf-16-be"):
+                    try:
+                        text = raw.decode(enc)
+                        if "\ufffd" not in text:  # no replacement chars = good decode
+                            raw = text.encode("utf-8")
+                            converted_from = enc.upper()
+                            break
+                    except (UnicodeDecodeError, UnicodeEncodeError):
+                        continue
+
+        # Strict UTF-8 validation
         try:
             raw.decode("utf-8", errors="strict")
-        except UnicodeDecodeError as exc:
-            failures.append(
-                f"  {os.path.basename(fpath)}: not valid UTF-8 at byte {exc.start}"
-            )
-            continue
+        except UnicodeDecodeError:
+            # Check 5: Try GBK/GB2312 (common Chinese Windows locale)
+            try:
+                text = raw.decode("gbk")
+                # Sanity: if GBK decode produces too many replacement chars, reject
+                if text.count("\ufffd") < len(text) * 0.05:
+                    raw = text.encode("utf-8")
+                    converted_from = "GBK"
+                else:
+                    raise UnicodeDecodeError("gbk", b"", 0, 1, "too many replacements")
+            except UnicodeDecodeError:
+                failures.append(
+                    f"  {os.path.basename(fpath)}: not valid UTF-8 (also tried UTF-16, GBK)"
+                )
+                continue
 
-        if has_bom:
-            # Only WARN; do NOT write back to original file (avoid repo dirty surprises)
-            # BOM will be stripped later when file is copied to temp dir (GATE-2)
-            eprint(
-                f"  BOM detected (will be stripped in temp copy): {os.path.basename(fpath)}"
-            )
+        # Write back converted content
+        if converted_from or has_bom:
+            with open(fpath, "wb") as fh:
+                fh.write(raw)
+            label = converted_from or "UTF-8 BOM"
+            auto_converted.append(f"  {os.path.basename(fpath)}: {label} → UTF-8")
+
+    if auto_converted:
+        eprint("GATE-UTF8 AUTO-CONVERTED:")
+        for msg in auto_converted:
+            eprint(msg)
 
     if failures:
         raise SystemExit(
             "GATE-UTF8 BLOCKED: Non-UTF-8 files detected\n"
             "\n" + "\n".join(failures) + "\n\n"
-            "Fix: Re-save files as UTF-8 (no BOM). On Windows: "
-            "chcp 65001 then re-create the file."
+            "Fix: Re-save files as UTF-8 (no BOM).\n"
+            "  On Windows PowerShell 7+: Out-File -Encoding utf8NoBOM\n"
+            "  On Windows PowerShell 5:  [IO.File]::WriteAllText($path, $content, [Text.UTF8Encoding]::new($false))\n"
+            "  Or use Python:            open(f, 'w', encoding='utf-8').write(content)\n"
+            "  AVOID: Set-Content (defaults to UTF-16/ANSI on Windows)"
         )
     eprint(f"GATE-UTF8 PASSED: {len(files_to_check)} files are valid UTF-8")
     return task_files
@@ -348,30 +413,47 @@ def ensure_ascii_paths(task_files: List[str]) -> List[str]:
 
 
 _HYDRATE_RE = re.compile(
-    r"\{\{\s*HYDRATE:\s*(?P<path>[^:}]+?)(?::(?P<range>[^}]+))?\s*\}\}"
+    r"\{\{\s*HYDRATE:\s*(?P<path>(?:\$\{[^}]+\}[\\/]?|[A-Za-z]:[\\/])?[^:}]+?)(?::(?P<range>[^}]+))?\s*\}\}"
 )
+
+
+def _expand_skill_vars(p: str) -> str:
+    """Replace ${SKILL_ROOT} and ${SKILLS_DIR} placeholders in HYDRATE paths."""
+    p = p.replace("${SKILL_ROOT}", _SKILL_ROOT)
+    p = p.replace("${SKILLS_DIR}", _ALL_SKILLS_DIR)
+    return p
 
 
 def _read_hydrate_target(raw_path: str, range_str: str | None) -> str:
     """Read file content for a HYDRATE macro. Returns replacement text or error comment."""
-    path = raw_path.strip()
+    path = _expand_skill_vars(raw_path.strip())
+    # Normalize to resolve ../../.. traversals
+    path = os.path.normpath(path)
     # Fallback: if relative path not found from cwd, try relative to pack-dir or repo root
     if not os.path.isfile(path) and not os.path.isabs(path):
-        # Try common base directories: pack-dir, cwd, git repo root
+        # Try common base directories: pack-dir, cwd, git repo root, skill dirs
         repo_root = ""
         try:
             r = subprocess.run(
                 ["git", "rev-parse", "--show-toplevel"],
                 capture_output=True,
-                text=True,
+                encoding="utf-8",
                 timeout=5,
             )
             if r.returncode == 0:
                 repo_root = r.stdout.strip()
         except Exception:
             pass
-        for base in [os.environ.get("_JULES_PACK_DIR", ""), os.getcwd(), repo_root]:
-            candidate = os.path.join(base, path)
+        for base in [
+            os.environ.get("_JULES_PACK_DIR", ""),
+            os.getcwd(),
+            repo_root,
+            _SKILL_ROOT,  # jules-cli/ directory
+            _ALL_SKILLS_DIR,  # parent of all skills (e.g. 029_Skill_Development/)
+        ]:
+            if not base:
+                continue
+            candidate = os.path.normpath(os.path.join(base, path))
             if os.path.isfile(candidate):
                 path = candidate
                 break
@@ -559,7 +641,6 @@ def run_bridge(cmd: List[str]) -> Dict[str, Any]:
     p = subprocess.run(
         cmd,
         capture_output=True,
-        text=True,
         encoding="utf-8",
         errors="strict",
         env=env,
@@ -586,7 +667,10 @@ def get_default_repo() -> str:
     """Auto-detect GitHub repo from git remote origin URL"""
     try:
         r = subprocess.run(
-            ["git", "remote", "get-url", "origin"], capture_output=True, text=True
+            ["git", "remote", "get-url", "origin"],
+            capture_output=True,
+            text=True,
+            encoding="utf-8",
         )
         if r.returncode == 0:
             url = r.stdout.strip()
@@ -612,12 +696,16 @@ def get_default_branch() -> str | None:
             ["git", "symbolic-ref", "refs/remotes/origin/HEAD"],
             capture_output=True,
             text=True,
+            encoding="utf-8",
         )
         if r.returncode == 0:
             return r.stdout.strip().split("/")[-1]
 
         r = subprocess.run(
-            ["git", "branch", "--show-current"], capture_output=True, text=True
+            ["git", "branch", "--show-current"],
+            capture_output=True,
+            text=True,
+            encoding="utf-8",
         )
         if r.returncode == 0 and r.stdout.strip():
             return r.stdout.strip()
@@ -778,6 +866,7 @@ def main() -> None:
                 ["git", "ls-remote", "--heads", gh_url, branch],
                 capture_output=True,
                 text=True,
+                encoding="utf-8",
                 timeout=15,
             )
             if ls.returncode != 0:
@@ -793,6 +882,7 @@ def main() -> None:
                     ["git", "ls-remote", "--heads", gh_url],
                     capture_output=True,
                     text=True,
+                    encoding="utf-8",
                     timeout=15,
                 )
                 branches = [
