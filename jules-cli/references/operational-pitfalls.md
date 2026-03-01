@@ -20,7 +20,7 @@ PowerShell and `jules.cmd` uses the system locale encoding, silently converting 
 **CJK content is allowed in prompts.** The dispatch script handles encoding automatically:
 
 1. **GATE-UTF8** validates all task files are strict UTF-8 (BOM auto-stripped)
-2. **GATE-2a** renames non-ASCII filenames to ASCII-safe basenames
+2. **GATE-2** copies ALL task files to ASCII-safe temp dir with canonical TASK-XXX.md basenames (BOM stripped)
 3. **GATE-FFFD** scans for replacement characters before submission
 4. **run_bridge** uses Python `encoding="utf-8", errors="strict"` — no silent corruption
 
@@ -406,8 +406,8 @@ the subprocess calls to `jules_bridge.py` suffer P3 encoding corruption, causing
 
 ### Fix (Strongly Recommended): Isolate New Tasks in a Separate Directory
 
-**NEVER mix new task files with old completed ones in the same `tasks/` directory.**
-*(Note: The script now only warns via GATE-1b, but keeping a clean directory is strongly advised to avoid clutter and accidental mutations.)*
+**Strongly recommended:** Do not mix new task files with old completed ones in the same `tasks/` directory.
+*(The script's GATE-1b only issues a WARNING for extra files — it does NOT block. But keeping `tasks/` clean avoids clutter, accidental re-submissions, and human confusion about which tasks are active.)*
 
 Option A: Use a versioned pack directory:
 ```

@@ -3,13 +3,14 @@
 
 Gates block submission before any API call is made:
 
-  GATE-1    (Status Filter):  Only tasks marked `pending` in PACK.md are submitted.
+  GATE-1    (Status Filter):  Only tasks marked `pending` in PACK.md status column are submitted.
   GATE-FNAME (Unique Mapping): Each pending task_id maps to exactly one file; duplicate/missing files are blocked.
   GATE-UTF8 (Encoding):       All pack/task files must be strict UTF-8 (BOM auto-stripped).
-  GATE-2    (ASCII Path):     Non-ASCII paths -> temp dir; basenames renamed to canonical TASK-XXX.md.
-  GATE-2b   (Hydration):      {{ HYDRATE: path:Lx-Ly }} macros replaced (strict UTF-8).
+  GATE-2    (Temp Copy):      ALL tasks copied to ASCII-safe temp dir; canonical TASK-XXX.md names; BOM stripped.
+  GATE-2b   (Hydration):      {{ HYDRATE: path:selector }} macros replaced (Lx-Ly, #Heading, BEGIN...END).
   GATE-4    (Batch Limit):    Batch size capped (default 50).
-  GATE-6    (Branch Check):   Verifies starting branch exists on remote.
+  GATE-CLI-BATCH (CLI Mode):  Blocks multi-task dispatch without JULES_API_KEY (ghost session reuse risk).
+  GATE-6    (Branch Check):   Verifies starting branch exists on remote (timeout = BLOCK).
   GATE-7    (Governance):     Each task must have Governance Capsule + Document Placement.
   GATE-FFFD (Integrity):      Reject prompts containing U+FFFD (silent corruption indicator).
   GATE-TASKID (Content):      task_id in file header must match filename prefix (case-insensitive).
@@ -69,25 +70,48 @@ def parse_pending_tasks(pack_dir: str) -> Tuple[List[str], Set[str]]:
             "Fix: Re-save PACK.md as UTF-8 (no BOM)."
         )
 
-    # Parse markdown table rows: | TASK-XXX | ... | pending | ...
+    # Locate the "status" column index from the header row.
+    # Typical format: | Task ID | Description | Aspect | Status | ... |
+    # If no explicit "status" header is found, fall back to checking all cells.
+    status_col: int | None = None
+    header_found = False
     pending_list: List[str] = []  # preserves PACK.md row order
     pending_set: Set[str] = set()
     all_tasks: Set[str] = set()
+
     for line in content.splitlines():
-        # Match table rows like: | TASK-017 | description | aspect | pending | ...
+        cells = [c.strip() for c in line.split("|")]
+        # Detect header row (contains "status" in one of its cells)
+        if not header_found and not re.match(r"\|\s*(TASK-[\w\-]+)\s*\|", line):
+            for idx, cell in enumerate(cells):
+                if cell.lower() == "status":
+                    status_col = idx
+                    header_found = True
+                    break
+            continue
+
+        # Skip separator rows (|---|---|---| etc.)
+        if re.match(r"\|[\s\-:|]+\|", line):
+            continue
+
+        # Match data rows: | TASK-XXX | ... |
         m = re.match(r"\|\s*(TASK-[\w\-]+)\s*\|", line)
         if not m:
             continue
         task_id = m.group(1).upper()  # normalize to uppercase
         all_tasks.add(task_id)
-        # Check if any cell exactly matches 'pending' (case-insensitive)
-        cells = [c.strip().lower() for c in line.split("|")]
-        if (
-            "pending" in cells
-        ):  # Exact cell match; "pending clarification" will NOT match
-            if task_id not in pending_set:
-                pending_list.append(task_id)
-                pending_set.add(task_id)
+
+        # Determine if this row is "pending"
+        is_pending = False
+        if status_col is not None and status_col < len(cells):
+            is_pending = cells[status_col].strip().lower() == "pending"
+        else:
+            # Fallback: exact cell match anywhere in the row
+            is_pending = "pending" in [c.strip().lower() for c in cells]
+
+        if is_pending and task_id not in pending_set:
+            pending_list.append(task_id)
+            pending_set.add(task_id)
 
     if not all_tasks:
         raise SystemExit(
@@ -98,8 +122,8 @@ def parse_pending_tasks(pack_dir: str) -> Tuple[List[str], Set[str]]:
     if not pending_list:
         raise SystemExit(
             f"GATE-1 BLOCKED: PACK.md has {len(all_tasks)} tasks but NONE are 'pending'.\n"
-            f"Found statuses: {', '.join(sorted(all_tasks))} — all non-pending.\n"
-            "Mark tasks as 'pending' in PACK.md before dispatching."
+            f"Found task IDs: {', '.join(sorted(all_tasks))} — all non-pending.\n"
+            "Mark tasks as 'pending' in the Status column of PACK.md before dispatching."
         )
 
     return pending_list, pending_set
@@ -350,7 +374,9 @@ def _read_hydrate_target(raw_path: str, range_str: str | None) -> str:
     if not os.path.isfile(path):
         return f"<!-- HYDRATE ERROR: file not found: {path} -->"
     try:
-        with open(path, encoding="utf-8") as f:
+        with open(
+            path, encoding="utf-8-sig"
+        ) as f:  # utf-8-sig strips BOM automatically
             lines = f.readlines()
     except (OSError, UnicodeDecodeError) as exc:
         return f"<!-- HYDRATE ERROR: {exc} -->"
@@ -690,14 +716,15 @@ def main() -> None:
     task_files = ensure_ascii_paths(task_files)
 
     # ---- GATE-CLI-BATCH: Prevent ghost session reuse for multi-task runs in CLI mode ----
-    if "JULES_API_KEY" not in os.environ:
+    api_key = os.environ.get("JULES_API_KEY", "").strip()
+    if not api_key:
         if len(task_files) > 1 and not args.allow_cli_batch:
             raise SystemExit(
                 f"GATE-CLI-BATCH BLOCKED: Attempting to submit {len(task_files)} tasks in CLI mode.\n"
-                "Without JULES_API_KEY, the bridge will guess the session_id, which often "
-                "causes all tasks to merge into the SAME session (Pitfall P2/P14).\n"
+                "Without JULES_API_KEY (or key is empty), the bridge will guess the session_id, "
+                "which often causes all tasks to merge into the SAME session (Pitfall P2/P14).\n"
                 "Fix:\n"
-                "  1. Export JULES_API_KEY (recommended)\n"
+                '  1. Export JULES_API_KEY="your-key" (recommended)\n'
                 "  2. Or use --allow-cli-batch to proceed anyway at your own risk"
             )
         eprint("GATE-CLI-BATCH WARNING: Running in CLI mode (no JULES_API_KEY).")
