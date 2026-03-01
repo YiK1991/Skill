@@ -162,7 +162,17 @@ The bridge computes an idempotency key from `hash(repo + branch + title + prompt
 If a dispatch record with the same key already exists in `.runtime/jules/dispatch/`,
 the bridge skips submission and returns the cached result.
 
-### Fix: Delete Stale Records Before Re-Dispatch
+### Fix: Use `--no-cache` (Recommended)
+
+```bash
+# Selectively clears idempotency records for pending tasks only
+python scripts/dispatch_prompt_pack.py --pack-dir <pack> --no-cache
+```
+
+### Fix: Manual Delete (Legacy / Last Resort)
+
+> ⚠ This deletes **ALL** dispatch records, including those from other packs or parallel
+> batches. Only use when `--no-cache` doesn't resolve the issue.
 
 ```python
 import os, glob
@@ -170,8 +180,6 @@ dispatch_dir = ".runtime/jules/dispatch"
 for f in glob.glob(os.path.join(dispatch_dir, "*.json")):
     os.remove(f)
 ```
-
-Or use the bridge's record path to delete specific records.
 
 ---
 
@@ -304,7 +312,19 @@ Python's `subprocess` with `["cmd", "/c", ...]` applies its own argument escapin
 conflicts with `cmd.exe`'s own parsing rules. Quotes in the `cmd_string` get double-escaped,
 corrupting paths passed to `type`. The empty stdin then causes Jules to return `INVALID_ARGUMENT`.
 
-### Fix: Use Native `.bat` Files for Batch Submission
+### Fix: Use `dispatch_prompt_pack.py` (Recommended)
+
+The dispatch script handles all encoding, path, and submission concerns internally
+without going through PowerShell pipe or `cmd /c`:
+
+```bash
+python scripts/dispatch_prompt_pack.py --pack-dir <pack> --repo owner/repo
+# GATE-2 auto-copies to ASCII-safe temp; bridge is called with UTF-8 strict
+```
+
+### Fix: Native `.bat` File (Legacy / Emergency Only)
+
+> ⚠ This bypasses all dispatch gates. Only use when `dispatch_prompt_pack.py` is unavailable.
 
 Instead of Python subprocess, write a `.bat` file and execute it:
 
@@ -412,10 +432,15 @@ task_files = sorted(
 
 (Now) GATE-1 filters by PACK.md pending status; non-pending files are skipped and warned (GATE-1b).
 
-### Compounding Factor: P3 (Chinese Paths)
-When `--pack-dir` contains Chinese characters (e.g., `工作同步/028_电商资料/...`),
-the subprocess calls to `jules_bridge.py` suffer P3 encoding corruption, causing ALL
-27 sessions to fail immediately. Result: 27 wasted quota slots, zero usable output.
+### Compounding Factor: P3 (Chinese Paths) — Historical
+
+> **Historical context**: When `--pack-dir` contained Chinese characters and tasks were
+> submitted via raw `.bat`, PowerShell pipe, or bypassing dispatch, the cross-process
+> encoding boundary caused P3 corruption (all sessions fail).
+>
+> **Current status**: `dispatch_prompt_pack.py` handles this via GATE-2 (all files copied
+> to ASCII-safe temp dir). CJK pack-dir paths are **no longer a failure condition** when
+> using dispatch. The real risk is external process pipe boundaries (P1/P3).
 
 ### Fix (Strongly Recommended): Isolate New Tasks in a Separate Directory
 

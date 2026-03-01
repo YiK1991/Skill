@@ -312,7 +312,6 @@ def ensure_ascii_paths(task_files: List[str]) -> List[str]:
         shutil.rmtree(temp_dir)
     os.makedirs(temp_dir)
 
-    _task_id_re = re.compile(r"(TASK-[\w-]+)", re.IGNORECASE)
     relocated: List[str] = []
     for i, src in enumerate(task_files):
         orig_name = os.path.basename(src)
@@ -858,7 +857,10 @@ def main() -> None:
             first_lines = open(tf, encoding="utf-8").read(512)
         except (OSError, UnicodeDecodeError):
             continue
-        m = re.search(r"task_id:\s*(TASK-[\w-]+)", first_lines, re.IGNORECASE)
+        # Use the same strict regex as filename extraction (no underscore in task_id)
+        m = re.search(
+            r"task_id:\s*(TASK-[A-Z0-9]+(?:-[A-Z0-9]+)*)", first_lines, re.IGNORECASE
+        )
         if m:
             tid_from_content = m.group(1).upper()
             if tid_from_content != tid_from_name:
@@ -870,7 +872,8 @@ def main() -> None:
         raise SystemExit(
             "GATE-TASKID BLOCKED: task_id in file header does not match filename prefix\n\n"
             + "\n".join(taskid_failures)
-            + "\n\nFix: ensure the 'task_id:' YAML field matches the filename TASK-XXX prefix."
+            + "\n\nFix: ensure the 'task_id:' YAML field matches the filename TASK-XXX prefix "
+            "(core ID only, no _suffix)."
         )
     if task_files:
         eprint("GATE-TASKID PASSED: all task_id headers match filename prefixes")
