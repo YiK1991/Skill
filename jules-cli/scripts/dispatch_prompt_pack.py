@@ -80,9 +80,11 @@ def parse_pending_tasks(pack_dir: str) -> Tuple[List[str], Set[str]]:
             continue
         task_id = m.group(1).upper()  # normalize to uppercase
         all_tasks.add(task_id)
-        # Check if any cell in this row contains 'pending' (case-insensitive)
+        # Check if any cell exactly matches 'pending' (case-insensitive)
         cells = [c.strip().lower() for c in line.split("|")]
-        if "pending" in cells:
+        if (
+            "pending" in cells
+        ):  # Exact cell match; "pending clarification" will NOT match
             if task_id not in pending_set:
                 pending_list.append(task_id)
                 pending_set.add(task_id)
@@ -268,15 +270,12 @@ def is_ascii_safe(path: str) -> bool:
 
 
 def ensure_ascii_paths(task_files: List[str]) -> List[str]:
-    """If any task file path has non-ASCII chars, copy ALL to an ASCII-safe temp dir.
+    """Copy ALL task files to an isolated ASCII-safe temp dir.
 
-    Basenames are renamed to ASCII-safe names (TASK-ID prefix or TASK-NNN fallback)
+    Basenames are renamed to canonical ASCII-safe names (TASK-XXX.md)
     to avoid the 'copied but still non-ASCII filename' problem.
-    Returns the (potentially relocated) list of file paths.
+    Returns the relocated list of file paths.
     """
-    if all(is_ascii_safe(f) for f in task_files):
-        eprint("GATE-2 PASSED: All paths are ASCII-safe")
-        return task_files
 
     # Create isolated PID-scoped temp directory (prevents concurrent collision)
     temp_dir = os.path.join(tempfile.gettempdir(), f"jules_dispatch_{os.getpid()}")
@@ -298,7 +297,14 @@ def ensure_ascii_paths(task_files: List[str]) -> List[str]:
         else:
             safe_name = canonical_name
         dst = os.path.join(temp_dir, safe_name)
-        shutil.copy2(src, dst)
+        # Copy content, stripping BOM if present
+        with open(src, "rb") as f_in:
+            raw = f_in.read()
+        if raw.startswith(b"\xef\xbb\xbf"):
+            raw = raw[3:]
+        with open(dst, "wb") as f_out:
+            f_out.write(raw)
+
         if safe_name != orig_name:
             eprint(f"  Renamed: {orig_name} -> {safe_name}")
         relocated.append(dst)
@@ -314,11 +320,11 @@ def ensure_ascii_paths(task_files: List[str]) -> List[str]:
 
 
 _HYDRATE_RE = re.compile(
-    r"\{\{\s*HYDRATE:\s*(?P<path>[^:}]+?)(?::L(?P<start>\d+)-L?(?P<end>\d+))?\s*\}\}"
+    r"\{\{\s*HYDRATE:\s*(?P<path>[^:}]+?)(?::(?P<range>[^}]+))?\s*\}\}"
 )
 
 
-def _read_hydrate_target(raw_path: str, start, end) -> str:
+def _read_hydrate_target(raw_path: str, range_str: str | None) -> str:
     """Read file content for a HYDRATE macro. Returns replacement text or error comment."""
     path = raw_path.strip()
     # Fallback: if relative path not found from cwd, try relative to pack-dir or repo root
@@ -349,13 +355,63 @@ def _read_hydrate_target(raw_path: str, start, end) -> str:
     except (OSError, UnicodeDecodeError) as exc:
         return f"<!-- HYDRATE ERROR: {exc} -->"
 
-    if start is not None and end is not None:
-        selected = lines[max(0, int(start) - 1) : int(end)]
-    else:
+    if not range_str:
         selected = lines
+        label = path
+    else:
+        range_str = range_str.strip()
+        m_lines = re.match(r"L(\d+)-L?(\d+)", range_str, re.IGNORECASE)
+        if m_lines:
+            start, end = int(m_lines.group(1)), int(m_lines.group(2))
+            selected = lines[max(0, start - 1) : end]
+            label = f"{path}:{range_str}"
+        elif range_str.startswith("#"):
+            # Markdown heading support (e.g., #Heading)
+            heading = range_str[1:].strip().lower()
+            start_idx = -1
+            end_idx = len(lines)
+            heading_level = 0
+            for i, line in enumerate(lines):
+                m_head = re.match(r"^(#{1,6})\s+(.*)$", line.strip())
+                if m_head:
+                    level = len(m_head.group(1))
+                    title = m_head.group(2).strip().lower()
+                    if start_idx == -1 and title == heading:
+                        start_idx = i
+                        heading_level = level
+                    elif start_idx != -1 and level <= heading_level:
+                        end_idx = i
+                        break
+            if start_idx != -1:
+                selected = lines[start_idx:end_idx]
+                label = f"{path}:{range_str}"
+            else:
+                return (
+                    f"<!-- HYDRATE ERROR: heading '{range_str}' not found in {path} -->"
+                )
+        elif "..." in range_str:
+            # BEGIN...END block marker support
+            parts = range_str.split("...")
+            start_marker, end_marker = parts[0].strip(), parts[1].strip()
+            start_idx = -1
+            end_idx = len(lines)
+            for i, line in enumerate(lines):
+                if start_idx == -1 and start_marker in line:
+                    start_idx = i
+                elif start_idx != -1 and end_idx == len(lines) and end_marker in line:
+                    end_idx = i + 1
+                    break
+            if start_idx != -1:
+                selected = lines[start_idx:end_idx]
+                label = f"{path}:{range_str}"
+            else:
+                return (
+                    f"<!-- HYDRATE ERROR: markers '{range_str}' not found in {path} -->"
+                )
+        else:
+            return f"<!-- HYDRATE ERROR: invalid range format '{range_str}' -->"
 
     content = "".join(selected).rstrip()
-    label = f"{path}:L{start}-L{end}" if start else path
     return f"```\n# Source: {label}\n{content}\n```"
 
 
@@ -374,9 +430,8 @@ def hydrate_prompt_files(task_files: List[str]) -> List[str]:
             continue
 
         def _replacer(m: re.Match) -> str:
-            s = int(m.group("start")) if m.group("start") else None
-            e = int(m.group("end")) if m.group("end") else None
-            return _read_hydrate_target(m.group("path"), s, e)
+            rng = m.group("range") if "range" in m.groupdict() else None
+            return _read_hydrate_target(m.group("path"), rng)
 
         new_content = _HYDRATE_RE.sub(_replacer, content)
         if new_content != content:
@@ -511,7 +566,7 @@ def get_default_repo() -> str:
     return "."
 
 
-def get_default_branch() -> str:
+def get_default_branch() -> str | None:
     """Auto-detect remote HEAD branch or current branch. Blocks if neither found."""
     try:
         r = subprocess.run(
@@ -561,6 +616,11 @@ def main() -> None:
         "--no-cache",
         action="store_true",
         help="Clear idempotency records for pending tasks before submission",
+    )
+    ap.add_argument(
+        "--allow-cli-batch",
+        action="store_true",
+        help="Allow dispatching multiple tasks without JULES_API_KEY (WARNING: session reuse risk)",
     )
     ap.add_argument("--json", action="store_true")
     args = ap.parse_args()
@@ -626,8 +686,23 @@ def main() -> None:
     # ---- GATE-UTF8: Strict encoding check (before any file processing) ----
     task_files = ensure_utf8_strict(args.pack_dir, task_files)
 
-    # ---- GATE-2: Ensure ASCII-safe paths ----
+    # ---- GATE-2: Ensure ASCII-safe paths (and strip BOM natively) ----
     task_files = ensure_ascii_paths(task_files)
+
+    # ---- GATE-CLI-BATCH: Prevent ghost session reuse for multi-task runs in CLI mode ----
+    if "JULES_API_KEY" not in os.environ:
+        if len(task_files) > 1 and not args.allow_cli_batch:
+            raise SystemExit(
+                f"GATE-CLI-BATCH BLOCKED: Attempting to submit {len(task_files)} tasks in CLI mode.\n"
+                "Without JULES_API_KEY, the bridge will guess the session_id, which often "
+                "causes all tasks to merge into the SAME session (Pitfall P2/P14).\n"
+                "Fix:\n"
+                "  1. Export JULES_API_KEY (recommended)\n"
+                "  2. Or use --allow-cli-batch to proceed anyway at your own risk"
+            )
+        eprint("GATE-CLI-BATCH WARNING: Running in CLI mode (no JULES_API_KEY).")
+    else:
+        eprint("GATE-CLI-BATCH PASSED: JULES_API_KEY found, API mode active.")
 
     # ---- GATE-2b: Hydrate {{ HYDRATE: ... }} macros ----
     task_files = hydrate_prompt_files(task_files)

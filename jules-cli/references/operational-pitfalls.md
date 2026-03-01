@@ -404,9 +404,10 @@ When `--pack-dir` contains Chinese characters (e.g., `工作同步/028_电商资
 the subprocess calls to `jules_bridge.py` suffer P3 encoding corruption, causing ALL
 27 sessions to fail immediately. Result: 27 wasted quota slots, zero usable output.
 
-### Fix: Isolate New Tasks in a Separate Directory
+### Fix (Strongly Recommended): Isolate New Tasks in a Separate Directory
 
 **NEVER mix new task files with old completed ones in the same `tasks/` directory.**
+*(Note: The script now only warns via GATE-1b, but keeping a clean directory is strongly advised to avoid clutter and accidental mutations.)*
 
 Option A: Use a versioned pack directory:
 ```
@@ -495,9 +496,11 @@ python dispatch_prompt_pack.py --pack-dir ... --repo owner/repo --starting-branc
 
 ### Fix (Automated)
 `dispatch_prompt_pack.py` GATE-6 在提交前自动执行 `git ls-remote --heads` 校验分支：
-- 分支不存在 → 列出所有可用分支 → 拒绝提交
-- 仓库不可达 → 打印 stderr → 拒绝提交
-- 网络超时 → 跳过检查，降级继续
+- 分支不存在 → 列出所有可用分支 → 拒绝提交 (BLOCK)
+- 仓库不可达 → 打印 stderr → 拒绝提交 (BLOCK)
+- 网络超时 → 拒绝提交 (BLOCK)，防止跑错分支浪费额度
+
+> Fix: 检查网络连接（或代理配置），重试，或显式指定 `--starting-branch`（不要依赖猜测）。
 
 ### Rule
 **禁止手动调用 `jules_bridge.py submit`**。统一走 `dispatch_prompt_pack.py`，
