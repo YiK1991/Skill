@@ -380,7 +380,7 @@ echo === ALL DONE ===
 
 ### Pre-Submission Checklist (manual — dispatch automates all of these)
 
-- [ ] All prompts are UTF-8 (CJK allowed; control-plane ids ASCII)
+- [ ] All prompts are UTF-8 (CJK allowed in body; control-plane identifiers ASCII)
 - [ ] Filenames are short ASCII-only
 - [ ] Task files are in an ASCII-safe directory
 - [ ] Each prompt includes the Document Placement CAUTION block
@@ -469,9 +469,13 @@ python dispatch_prompt_pack.py --pack-dir jules_pack
 python dispatch_prompt_pack.py --pack-dir jules_pack_v2
 # If format is wrong, ALL 11 tasks fail
 
-# ❌ WRONG: Pack dir path contains Chinese characters
+# ⚠ CAUTION (historical): Pack dir path containing Chinese characters
+# Previously caused P3 encoding corruption with direct bridge/pipe submission.
+# When using dispatch_prompt_pack.py, CJK pack-dir paths are handled by GATE-2
+# (auto-copy to ASCII-safe temp). This is no longer a hard failure.
+# The real risk is PowerShell pipe / external process boundary encoding (P1/P3).
 python dispatch_prompt_pack.py --pack-dir "00_Documentation/99_Inbox/Architecture_survey/jules_pack"
-# P3 encoding corruption — all sessions fail
+# ✅ Works with dispatch (GATE-2 handles path); ❌ Fails with raw .bat/pipe
 ```
 
 ### Proven Safe Pattern

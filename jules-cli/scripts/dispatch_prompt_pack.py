@@ -141,8 +141,8 @@ def filter_task_files(tasks_dir: str, pending_ids: Set[str]) -> List[str]:
     matched: List[str] = []
     skipped: List[str] = []
     for fname in all_files:
-        # Extract TASK-XXX from filename (e.g., TASK-017.md, TASK-017_auth.md)
-        m = re.match(r"(TASK-[\w\-]+)", fname, re.IGNORECASE)
+        # Extract core TASK-XXX id (stop at underscore/dot — slugs like _auth are ignored)
+        m = re.match(r"(TASK-[A-Z0-9]+(?:-[A-Z0-9]+)*)", fname, re.IGNORECASE)
         if m and m.group(1).upper() in pending_ids:
             matched.append(os.path.join(tasks_dir, fname))
         else:
@@ -179,7 +179,7 @@ def filter_task_files(tasks_dir: str, pending_ids: Set[str]) -> List[str]:
 
 # ========================== GATE-FNAME: Unique task_id→file mapping ================
 
-_TASK_ID_RE = re.compile(r"(TASK-[\w-]+)", re.IGNORECASE)
+_TASK_ID_RE = re.compile(r"(TASK-[A-Z0-9]+(?:-[A-Z0-9]+)*)", re.IGNORECASE)
 
 
 def extract_task_id_from_filename(fname: str) -> str | None:
@@ -689,19 +689,30 @@ def main() -> None:
     # Reorder task_files to match PACK.md row order (deterministic)
     task_files = list(id_to_file.values())
 
-    # ---- --no-cache: Clear idempotency records for pending tasks ----
+    # ---- --no-cache: Clear idempotency records for pending tasks only ----
     if args.no_cache:
         state_dir = os.path.join(".runtime", "jules", "dispatch")
         if os.path.isdir(state_dir):
+            pending_upper = {tid.upper() for tid in pending_list}
             cleared = 0
             for f in os.listdir(state_dir):
-                if f.endswith(".json"):
-                    os.remove(os.path.join(state_dir, f))
+                if not f.endswith(".json"):
+                    continue
+                fpath = os.path.join(state_dir, f)
+                try:
+                    record = json.loads(open(fpath, encoding="utf-8").read())
+                    title = record.get("title", "").upper()
+                except (json.JSONDecodeError, OSError):
+                    continue  # skip corrupt records
+                if title in pending_upper:
+                    os.remove(fpath)
                     cleared += 1
             if cleared:
                 eprint(
-                    f"--no-cache: Cleared {cleared} idempotency records from {state_dir}"
+                    f"--no-cache: Cleared {cleared} idempotency records for pending tasks"
                 )
+            else:
+                eprint("--no-cache: No matching records for pending tasks")
         else:
             eprint("--no-cache: No idempotency records found (clean state)")
 

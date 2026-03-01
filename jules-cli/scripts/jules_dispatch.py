@@ -13,8 +13,9 @@ def main() -> None:
     print(
         "This script is deprecated. Use:\n"
         "  python scripts/dispatch_prompt_pack.py --pack-dir <...>/jules_pack --repo . --json\n"
-        "or call:\n"
-        "  python scripts/jules_bridge.py submit --title ... --prompt-file ... --json\n",
+        "\n"
+        "Direct jules_bridge.py submit is blocked by default.\n"
+        "For debugging only: export _JULES_DISPATCH=1 before calling bridge submit.\n",
         file=sys.stderr,
     )
     sys.exit(2)
