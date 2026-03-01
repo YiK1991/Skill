@@ -15,3 +15,9 @@ ref/
 .env
 .env.*
 !.env.example
+
+# Local-only plan modules (not version controlled)
+plans/
+
+# Temporary suite-level scripts (local-only)
+scripts/
