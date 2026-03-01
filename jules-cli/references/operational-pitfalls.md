@@ -68,23 +68,24 @@ list, all subsequent tasks get mapped to that same session ID.
 The `cli_remote_new` step may succeed (creating a real session), but the extracted session ID
 is wrong — it points to a pre-existing session.
 
-### Fix: Use API Mode When Available
+### Fix: Use `dispatch_prompt_pack.py` (Recommended)
 
-API mode (`--mode api` or automatic detection based on `JULES_API_KEY`) calls
-`api_create_session()` which returns the actual new session ID. No guessing needed.
+The dispatch script uses API mode automatically when `JULES_API_KEY` is set,
+and handles session creation correctly. For single-task verification:
 
 ```bash
 export JULES_API_KEY="your-key"
-python scripts/jules_bridge.py submit \
+# Create a minimal pack with one pending task, then dispatch:
+python scripts/dispatch_prompt_pack.py \
+  --pack-dir my_pack \
   --repo owner/repo \
-  --prompt-file task.md \
-  --title "TASK-001" \
-  --json
+  --starting-branch master
+# GATE-3 smoke test runs the first task alone → equivalent to single-task verification
 ```
 
-### Fix: Skip Bridge, Use Jules CLI Directly
+### Fix: Direct Jules CLI (Emergency Fallback)
 
-When API mode is unavailable, bypass the bridge entirely for submission:
+When API mode is unavailable and dispatch is not an option:
 
 ```powershell
 # Direct submission — returns correct session ID
@@ -95,11 +96,18 @@ cmd /c "chcp 65001 >nul && type C:\temp\task.md | jules remote new --repo owner/
 
 Then manually record the session ID for tracking.
 
+> **Debugging only**: If you must call `jules_bridge.py submit` directly (e.g., for
+> driver-level debugging), you need `export _JULES_DISPATCH=1`. This bypasses the
+> dispatch-only gate. **Do not use this in production workflows.**
+
 ### Anti-Pattern
 ```bash
-# ❌ WRONG: CLI mode bridge — session ID extraction is unreliable
+# ❌ WRONG: Direct bridge call without dispatch gate — will be BLOCKED
 python scripts/jules_bridge.py submit --mode cli --prompt-file task.md
-# Returns "ok": true but session_id may be wrong
+# Error: _JULES_DISPATCH not set. Use dispatch_prompt_pack.py instead.
+
+# ❌ WRONG: CLI mode bridge — session ID extraction is unreliable
+# Even with _JULES_DISPATCH=1, CLI mode guesses session_id (see above)
 ```
 
 ---
@@ -324,12 +332,17 @@ subprocess.run(["cmd", "/c", cmd], ...)  # Path gets corrupted
 
 ---
 
-## P9: Batch Submission — Complete `.bat` Template
+## P9: Batch Submission — `.bat` Template (Legacy / Emergency Only)
+
+> ⚠ **LEGACY**: The `.bat` template bypasses all dispatch gates (GATE-1/FNAME/UTF8/CLI-BATCH/etc.).
+> **Always prefer `dispatch_prompt_pack.py`** which enforces all safety checks.
+> Use `.bat` only when: (1) API is completely unavailable, (2) dispatch script cannot run,
+> and (3) you explicitly accept the risk of no automated safety checks.
 
 ### Symptom
 Need to submit 10+ tasks to Jules efficiently without manual copy-paste.
 
-### Proven Solution: `.bat` File with Rate Limiting
+### Legacy Solution: `.bat` File with Rate Limiting
 
 The following template has been verified to submit 12 tasks successfully:
 
@@ -356,7 +369,7 @@ REM ... repeat for each task ...
 echo === ALL DONE ===
 ```
 
-### Critical Rules for Batch Submission
+### Critical Rules for `.bat` Batch Submission
 
 1. **Use short ASCII-only filenames** (e.g., `INV-D001.md`, not `INV-D001__ExportDialog_Reset_Strategy.md`)
 2. **5-second delay between submissions** (`timeout /t 5 /nobreak >nul`) — prevents rate limiting
@@ -365,7 +378,7 @@ echo === ALL DONE ===
 5. **Copy task files to ASCII-safe path first** (e.g., `C:\temp\jules_tasks\`) if source path contains non-ASCII characters
 6. **Run via `cmd /c submit.bat`** from PowerShell — not via Python subprocess
 
-### Pre-Submission Checklist
+### Pre-Submission Checklist (manual — dispatch automates all of these)
 
 - [ ] All prompts are UTF-8 (CJK allowed; control-plane ids ASCII)
 - [ ] Filenames are short ASCII-only
@@ -443,7 +456,7 @@ Before running `dispatch_prompt_pack.py`:
 1. **Count** (auto): GATE-1 filters by PACK.md pending status
 2. **Verify isolation** (auto): GATE-1b warns about extra files
 3. **Single-task test FIRST** (auto): GATE-3 smoke test
-4. **ASCII path** (auto): GATE-2 + GATE-2a auto-copy and rename
+4. **ASCII path** (auto): GATE-2 auto-copy to temp dir and canonical rename
 5. **Use dispatch script**: The dispatch script is now the mandatory submission method
 
 ### Anti-Patterns
@@ -463,13 +476,12 @@ python dispatch_prompt_pack.py --pack-dir "00_Documentation/99_Inbox/Architectur
 
 ### Proven Safe Pattern
 ```powershell
-# 1. Copy only new tasks to ASCII-safe directory
-Copy-Item "jules_pack\tasks\TASK-017.md" -Destination "C:\temp\jules_tasks\" # repeat for 018-027
-
-# 2. Single-task smoke test
-python jules_bridge.py submit --repo YiK1991/Amazon_SaaS_ERP --starting-branch master --prompt-file "C:\temp\jules_tasks\TASK-017.md" --title "TASK-017" --json
-
-# 3. Only after success: use .bat template (P9) for remaining tasks
+# ✅ ALWAYS use dispatch script — it handles everything
+python dispatch_prompt_pack.py `
+  --pack-dir C:\temp\jules_pack `
+  --repo YiK1991/Amazon_SaaS_ERP `
+  --starting-branch master
+# GATE-1 filters pending only, GATE-3 does smoke test automatically
 ```
 
 ---

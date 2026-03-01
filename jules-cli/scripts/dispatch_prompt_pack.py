@@ -72,7 +72,7 @@ def parse_pending_tasks(pack_dir: str) -> Tuple[List[str], Set[str]]:
 
     # Locate the "status" column index from the header row.
     # Typical format: | Task ID | Description | Aspect | Status | ... |
-    # If no explicit "status" header is found, fall back to checking all cells.
+    # If no explicit "status" header is found, BLOCK (enforces table contract).
     status_col: int | None = None
     header_found = False
     pending_list: List[str] = []  # preserves PACK.md row order
@@ -101,17 +101,22 @@ def parse_pending_tasks(pack_dir: str) -> Tuple[List[str], Set[str]]:
         task_id = m.group(1).upper()  # normalize to uppercase
         all_tasks.add(task_id)
 
-        # Determine if this row is "pending"
+        # Determine if this row is "pending" — only check the Status column
         is_pending = False
         if status_col is not None and status_col < len(cells):
             is_pending = cells[status_col].strip().lower() == "pending"
-        else:
-            # Fallback: exact cell match anywhere in the row
-            is_pending = "pending" in [c.strip().lower() for c in cells]
 
         if is_pending and task_id not in pending_set:
             pending_list.append(task_id)
             pending_set.add(task_id)
+
+    if not header_found:
+        raise SystemExit(
+            "GATE-1 BLOCKED: PACK.md table has no 'Status' column header.\n"
+            "Expected a header row with a cell exactly matching 'Status' "
+            "(e.g. | Task ID | Description | Status | ...).\n"
+            "Add the Status column header to PACK.md so pending detection is unambiguous."
+        )
 
     if not all_tasks:
         raise SystemExit(
@@ -393,7 +398,16 @@ def _read_hydrate_target(raw_path: str, range_str: str | None) -> str:
             label = f"{path}:{range_str}"
         elif range_str.startswith("#"):
             # Markdown heading support (e.g., #Heading)
-            heading = range_str[1:].strip().lower()
+            def _normalize_heading(text: str) -> str:
+                """Normalize heading text for comparison (strip backticks, emoji, extra punct)."""
+                text = text.lower().strip()
+                text = re.sub(
+                    r"[`\u200b]", "", text
+                )  # strip backticks, zero-width spaces
+                text = re.sub(r"\s+", " ", text)  # collapse whitespace
+                return text
+
+            heading = _normalize_heading(range_str[1:])
             start_idx = -1
             end_idx = len(lines)
             heading_level = 0
@@ -401,7 +415,7 @@ def _read_hydrate_target(raw_path: str, range_str: str | None) -> str:
                 m_head = re.match(r"^(#{1,6})\s+(.*)$", line.strip())
                 if m_head:
                     level = len(m_head.group(1))
-                    title = m_head.group(2).strip().lower()
+                    title = _normalize_heading(m_head.group(2))
                     if start_idx == -1 and title == heading:
                         start_idx = i
                         heading_level = level
