@@ -25,6 +25,10 @@
 
 > 字段名固定，禁止同义词替代（如不许用 "Files Changed" 替代 "Write List"）。
 
+> **更新面收敛原则**：`Plan Update Targets` 默认最多触达 **3 个目标文件**（每个保留 RefSpec + ≤3行编辑建议）。
+> - **建议目标**：`CURRENT.md#...`（状态修改）、`references/Px_*.md#...`（主源设计）、`change_log.md`（变更）。
+> - **超额处理**：若确需更新超过 3 个文件目标，务必先进行 Canonicalization（把重复事实合并回单一 Px 文档），再只反馈该单一更新。
+
 ### 证据形态标准（所有 worker 必须遵守）
 
 | 规则 | 说明 |
@@ -63,6 +67,19 @@
   - 🔴 且 Status=`fixed`/`accepted` → **pass**（`accepted` 必须有 RefSpec 记录风险接受点）
   - 无 🔴 → **pass**
 - **失败动作**：创建/更新 `questions/Q-NNN_review_*` 并在 tracker 写 `BLOCKED(Q-NNN)`
+
+## G-READY 定义（Execution Readiness Gate）
+
+- **触发**：计划进入 EXECUTING 阶段前
+- **通过条件（必须全部满足）**：
+  1. `execution/_tracker.md` 存在且包含 ≥1 条非表头任务行
+  2. `execution/` 目录下存在至少一个 `B{NNN}_*.md`
+  3. 各 Active B-files 具备最小执行结构：`Objective`、`Execution Steps`、`Definition of Done (DoD)` 三个 block 必须存在（允许 stub 骨架，但区块不可少）
+  4. `CURRENT.md` Head/Tail Anchor 中 `PlanApproved: YES`
+- **失败动作**：
+  - 计划模块 `Status` 回退为 `DESIGNING`
+  - 创建或更新 `questions/Q-NNN_exec_ready_<slug>.md`
+  - 在 tracker 中对应行标记 `BLOCKED(Q-NNN)`
 
 ## 回流协议
 

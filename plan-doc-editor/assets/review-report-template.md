@@ -14,6 +14,8 @@ as_of: YYYY-MM-DD
 ---
 
 > ⛔ **REDACT RULE**: 任何疑似密钥/Token 一律用 `***REDACTED***` 输出。永不复述环境变量内容。永不输出完整请求头。Evidence 允许 libraryId/版本/来源路径/摘录片段；禁止请求头/curl 命令/含 token 的环境变量。
+>
+> 🛡️ **护栏 B (门禁裁决)**：如果任何地方发现疑似 secret (如 Bearer 长 string, base64 格式的随机串)，必须立刻在 Issue Index 内记一条 `🔴 Critical` 且 `Status=open` 的问题，确保 Gate-R 直接 Fail 不放行任何流出物。
 
 # INV-NNN: Review Report — <slug>
 

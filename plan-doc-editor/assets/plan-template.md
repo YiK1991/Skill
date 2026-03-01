@@ -21,6 +21,7 @@ owners:
 - **Next actions**: 1. … 2. … 3. …
 - **Hard constraints**: <key constraints from §0>
 - **Links**: [tracker](execution/_tracker.md) · [change_log](change_log.md)
+- **PlanApproved**: NO
 
 ## How to Read This (Progressive Disclosure)
 
@@ -139,3 +140,4 @@ B001 → B002 → ...
 - **Next actions**: 1. … 2. … 3. …
 - **Hard constraints**: <key constraints from §0>
 - **Links**: [tracker](execution/_tracker.md) · [change_log](change_log.md)
+- **PlanApproved**: NO

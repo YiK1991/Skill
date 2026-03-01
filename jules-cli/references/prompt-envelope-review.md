@@ -243,6 +243,8 @@
 ## 7) Context7 外部依赖校验（可选）
 
 > ⛔ **REDACT RULE**: 任何疑似密钥/Token 一律 `***REDACTED***`。Evidence 允许 libraryId/版本/来源路径/摘录；禁止请求头/curl/含 token 的变量。
+>
+> 🛡️ **护栏 A：最小暴露面原则**：禁止使用 `node ... --key ...` 等命令行传参格式，只允许前置 `export CONTEXT7_API_KEY=...` 或通过 CI secret 注入，以防留存在外部 logs/history 当中。
 
 **触发条件**（按优先级）：
 1. Q 中有 `deps_to_verify` → **必跑**

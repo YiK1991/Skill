@@ -97,6 +97,8 @@ REVIEW REPORT (lightweight — if plan-doc-editor environment detected):
 
 ⛔ REDACT RULE: any suspected key/token → ***REDACTED***.
    Never echo env var values. Never output full request headers.
+🛡️ Guardrail B: if any suspected secret found (Bearer string, base64 random),
+   record as 🔴 Critical + Status=open in Issue Index → Gate-R auto-fail.
 
 Detection: if ancestor directories contain CURRENT.md AND
 investigation/ AND questions/ directories → treat as plan module.

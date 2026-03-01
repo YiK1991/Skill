@@ -12,6 +12,21 @@ Use this prompt to execute the plan following strict TDD discipline.
 ```
 IMPLEMENTATION PHASE - Test-Driven Development
 
+PRE-FLIGHT (plan-doc-editor environment):
+
+Detection: if ancestor directories contain CURRENT.md AND
+investigation/ AND questions/ directories → treat as plan module.
+
+If plan module detected, check BEFORE any code generation:
+1. CURRENT.md Head/Tail Anchor: PlanApproved == YES
+2. G-READY == pass (tracker exists, B-files have Objective/Steps/DoD)
+
+If EITHER fails → STOP (no production code, no TDD):
+→ Only output Plan Update Targets to fill execution/_tracker.md
+  or create execution/B*_*.md stubs (skeleton only).
+→ Keep PlanApproved: NO.
+→ Create questions/Q-NNN_exec_ready_* to record the gap.
+
 Execute the plan we created, following TDD discipline strictly.
 
 TDD RULES:

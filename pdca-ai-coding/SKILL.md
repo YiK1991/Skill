@@ -237,6 +237,7 @@ PDCA is an agile implementer that adapts to the project's existing infrastructur
      - **Discovery (Hitting a blocker)**: Do not force a fix for major architectural gaps. **STOP execution**, create a `Q-NNN` file in the `questions/` directory outlining the traceback/issue, and mark the Tracker as blocked.
      - **Post-work**: Upon successful TDD completion, Do NOT hand-edit `_tracker.md`. Emit Plan Update Targets (RefSpec + ≤3-line edits). Orchestrator applies tracker/CURRENT/change_log updates.
    - **Gate-J (Jules Review)**: If B file frontmatter contains `gate_j: required`, do NOT mark as DONE until Jules review PR is merged. Trigger Jules review pack via `/jules` workflow, wait for result in `investigation/INV-*_jules_review.md` (must contain unified output fields: Read/Write/Evidence/Plan Update Targets per integration-router.md), then proceed to DONE.
+     - **Pre-flight gate**: Before entering Implementation (Do phase), check `PlanApproved == YES` and `G-READY == pass`. If either fails, STOP — only emit Plan Update Targets to fill execution stubs, do not write production code.
      - **Recitation source**: when plan-doc-editor is present, recitation prioritizes CURRENT Head/Tail + tracker active rows; otherwise use session anchors.
 2. **Without Infrastructure (Greenfield / Zero-start)**
 
