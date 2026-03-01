@@ -59,6 +59,17 @@ Jules 结果 → plan-doc-editor 的路径：
 3. plan-doc-editor 按 Workflow C（提炼）消费结果，更新 `references/P*` 和 B files
 4. 更新 `_tracker.md`，标记 INV 为 REVIEWED
 
+### Tracker 治理规则
+
+> Workers（PDCA / Jules）**不直接编辑** `_tracker.md`。
+> 只输出 `Plan Update Targets (RefSpec + bullet edits)`，由 plan-doc-editor 统一应用。
+
+如必须手动改 tracker（例如标记 status = DONE）：
+
+1. **只改单元格值**（如 status），不改表头 / 列数 / 管道对齐
+2. **10 秒校对**：修改后检查 (a) 每行 `|` 数量一致，(b) header 分隔行存在 `|---|...|`，(c) 无空行打断表格
+3. plan-doc-editor 在 G-SYNC 阶段会校验 tracker 表格完整性
+
 ## 并行拆分约束（Jules implement handoff）
 
 当 plan-doc-editor 拆分任务并 handoff 到 Jules 并行 implement 时，**必须**满足：
