@@ -13,6 +13,7 @@ Gates block submission before any API call is made:
   GATE-6    (Branch Check):   Verifies starting branch exists on remote (timeout = BLOCK).
   GATE-7    (Governance):     Each task must have Governance Capsule + Document Placement.
   GATE-FFFD (Integrity):      Reject prompts containing U+FFFD (silent corruption indicator).
+  GATE-PATH (Path Check):     Validate review_scope paths exist in target repo; warn on body path typos.
   GATE-TASKID (Content):      task_id in file header must match filename prefix (case-insensitive).
   GATE-3    (Smoke Test):     First task submitted alone; failure aborts batch.
 
@@ -595,6 +596,226 @@ def check_no_replacement_chars(task_files: List[str]) -> None:
     eprint(f"GATE-FFFD PASSED: No replacement characters in {len(task_files)} files")
 
 
+# ========================== GATE-PATH: Review Scope Path Validation ================
+
+# Known source code extensions for body-scan heuristic (Layer 2)
+_CODE_EXTENSIONS = {
+    ".py",
+    ".ts",
+    ".tsx",
+    ".js",
+    ".jsx",
+    ".vue",
+    ".svelte",
+    ".css",
+    ".scss",
+    ".less",
+    ".html",
+    ".htm",
+    ".json",
+    ".yaml",
+    ".yml",
+    ".toml",
+    ".cfg",
+    ".ini",
+    ".md",
+    ".mdx",
+    ".rst",
+    ".txt",
+    ".java",
+    ".kt",
+    ".go",
+    ".rs",
+    ".rb",
+    ".php",
+    ".cs",
+    ".cpp",
+    ".c",
+    ".h",
+    ".sh",
+    ".bash",
+    ".ps1",
+    ".bat",
+    ".sql",
+    ".graphql",
+    ".proto",
+}
+
+# Regex to detect path-like strings in task body (layer 2 heuristic)
+_PATH_LIKE_RE = re.compile(
+    r"(?:^|\s|`|\()"  # preceded by whitespace, backtick, or paren
+    r"((?:[\w.\-]+/)+[\w.\-]+\.\w{1,5})"  # path with / separators and extension
+    r"(?:\s|$|`|\)|,|;)",  # followed by whitespace, end, backtick, paren, comma
+    re.MULTILINE,
+)
+
+
+def _parse_frontmatter_review_scope(content: str) -> List[str]:
+    """Extract review_scope list from YAML frontmatter (lightweight, no PyYAML dep)."""
+    # Match --- delimited frontmatter
+    fm_match = re.match(r"^---\s*\n(.*?)\n---", content, re.DOTALL)
+    if not fm_match:
+        return []
+    fm_text = fm_match.group(1)
+    # Find review_scope: block
+    scope_match = re.search(r"^review_scope:\s*$", fm_text, re.MULTILINE)
+    if not scope_match:
+        return []
+    # Collect indented list items after review_scope:
+    paths: List[str] = []
+    for line in fm_text[scope_match.end() :].splitlines():
+        stripped = line.strip()
+        if stripped.startswith("- "):
+            paths.append(stripped[2:].strip())
+        elif stripped == "" or stripped.startswith("#"):
+            continue  # skip blank lines and comments
+        else:
+            break  # hit next key
+    return paths
+
+
+def _get_repo_files(repo: str, branch: str) -> List[str]:
+    """Get list of all files in the target repo/branch for path validation."""
+    if repo == "." or repo.startswith("sources/"):
+        # Local repo — use local git ls-files
+        try:
+            r = subprocess.run(
+                ["git", "ls-files"],
+                capture_output=True,
+                encoding="utf-8",
+                timeout=10,
+            )
+            if r.returncode == 0:
+                return [f.strip() for f in r.stdout.splitlines() if f.strip()]
+        except Exception:
+            pass
+        return []
+    # Remote repo — use git ls-tree (requires clone or API)
+    # Fallback: try GitHub API-style ls-tree via ls-remote
+    gh_url = f"https://github.com/{repo}.git"
+    try:
+        r = subprocess.run(
+            ["git", "ls-remote", "--refs", gh_url],
+            capture_output=True,
+            encoding="utf-8",
+            timeout=15,
+        )
+        # ls-remote can't list files, only refs. For file-level check,
+        # we need a shallow clone or the GitHub API. Return empty to skip
+        # hard validation for remote repos (only warn).
+    except Exception:
+        pass
+    return []
+
+
+def _fuzzy_match(target: str, candidates: List[str], max_results: int = 3) -> List[str]:
+    """Find closest matching paths using simple similarity heuristic."""
+    basename = os.path.basename(target)
+    # Score: exact basename match > partial path overlap > nothing
+    scored = []
+    for c in candidates:
+        score = 0
+        if os.path.basename(c) == basename:
+            score += 100  # same filename
+        # Count matching path segments from the end
+        t_parts = target.replace("\\", "/").split("/")
+        c_parts = c.replace("\\", "/").split("/")
+        common = 0
+        for tp, cp in zip(reversed(t_parts), reversed(c_parts)):
+            if tp == cp:
+                common += 1
+            else:
+                break
+        score += common * 10
+        if score > 0:
+            scored.append((score, c))
+    scored.sort(key=lambda x: -x[0])
+    return [c for _, c in scored[:max_results]]
+
+
+def gate_path_check(
+    task_files: List[str],
+    repo: str,
+    branch: str,
+) -> None:
+    """GATE-PATH: Validate file paths referenced in task prompts.
+
+    Layer 1 (BLOCK): Paths declared in frontmatter review_scope must exist.
+    Layer 2 (WARN):  Path-like strings in body text are soft-checked.
+    """
+    repo_files = _get_repo_files(repo, branch)
+    # Normalize to forward slashes for comparison
+    repo_files_normalized = {f.replace("\\", "/") for f in repo_files}
+
+    all_block_failures: List[str] = []
+    all_warnings: List[str] = []
+
+    for tf in task_files:
+        content = open(tf, encoding="utf-8").read()
+        task_name = os.path.basename(tf)
+
+        # ---- Layer 1: Frontmatter review_scope (hard check) ----
+        scope_paths = _parse_frontmatter_review_scope(content)
+        if scope_paths:
+            missing = []
+            for sp in scope_paths:
+                sp_norm = sp.replace("\\", "/").strip()
+                if sp_norm not in repo_files_normalized:
+                    suggestions = _fuzzy_match(sp_norm, repo_files)
+                    hint = ""
+                    if suggestions:
+                        hint = f" → Did you mean: {suggestions[0]}?"
+                        if len(suggestions) > 1:
+                            hint += f" (also: {', '.join(suggestions[1:])})"
+                    missing.append(f"    {sp}{hint}")
+            if missing:
+                all_block_failures.append(
+                    f"  {task_name} — review_scope paths not found:\n"
+                    + "\n".join(missing)
+                )
+            else:
+                eprint(
+                    f"  GATE-PATH L1: {task_name} — {len(scope_paths)} review_scope paths verified"
+                )
+
+        # ---- Layer 2: Body text heuristic scan (soft check) ----
+        if repo_files_normalized:
+            # Strip frontmatter and code blocks for scanning
+            body = re.sub(r"^---.*?---", "", content, count=1, flags=re.DOTALL)
+            body = re.sub(r"```.*?```", "", body, flags=re.DOTALL)  # remove code blocks
+            found_paths = _PATH_LIKE_RE.findall(body)
+            for fp in found_paths:
+                fp_norm = fp.replace("\\", "/").strip()
+                ext = os.path.splitext(fp_norm)[1].lower()
+                if ext not in _CODE_EXTENSIONS:
+                    continue
+                if fp_norm not in repo_files_normalized:
+                    suggestions = _fuzzy_match(fp_norm, repo_files)
+                    hint = ""
+                    if suggestions:
+                        hint = f" → Did you mean: {suggestions[0]}?"
+                    all_warnings.append(f"  {task_name}: {fp}{hint}")
+
+    # Report results
+    if all_warnings:
+        eprint("GATE-PATH WARN: Possible path typos in task body (non-blocking):")
+        for w in all_warnings:
+            eprint(w)
+
+    if all_block_failures:
+        raise SystemExit(
+            "GATE-PATH BLOCKED: review_scope contains paths that don't exist in the target repo.\n"
+            "\n" + "\n".join(all_block_failures) + "\n\n"
+            "Fix: Correct the paths in the task file's review_scope frontmatter.\n"
+            "Tip: Use 'git ls-files | grep <filename>' to find the correct path."
+        )
+
+    if scope_paths or all_warnings:
+        eprint(
+            f"GATE-PATH PASSED: Path validation complete for {len(task_files)} files"
+        )
+
+
 # ========================== GATE-3: Smoke Test ==========================
 
 
@@ -856,7 +1077,9 @@ def main() -> None:
                 "Fix: Check the HYDRATE source file paths and encoding, then re-run."
             )
 
-    # ---- GATE-6: Verify remote branch exists ----
+    # ---- GATE-PATH: Review Scope Path Validation ----
+    gate_path_check(task_files, args.repo, args.starting_branch)
+
     repo = args.repo
     branch = args.starting_branch
     if repo != "." and not repo.startswith("sources/"):
