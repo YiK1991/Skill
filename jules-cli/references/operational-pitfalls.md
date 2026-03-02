@@ -738,3 +738,89 @@ The Jules API does not support the `--parallel` flag.
 # ❌ WRONG: --parallel causes 400
 jules remote new --repo owner/repo --parallel 1
 ```
+
+---
+
+## P16: UTF-8 Multi-byte Truncation — Sync Tools / Editors Corrupt CJK Characters
+
+### Symptom
+Markdown files (especially `_tracker.md`, `CURRENT.md`) suddenly contain `�` (U+FFFD replacement
+characters) or produce `UnicodeDecodeError: invalid start byte` when processed by Python scripts.
+The corruption appears **after** a file sync or editor save, not during initial creation.
+
+### Root Cause
+Cloud sync tools (BaiduSyncdisk, OneDrive, Dropbox) or editors may truncate a file write
+mid-stream, splitting a multi-byte UTF-8 character (Chinese characters are 3 bytes in UTF-8).
+This leaves orphaned continuation bytes (`0x80-0xBF`) without their leading byte, producing
+invalid UTF-8 sequences.
+
+Common scenarios:
+1. **Sync tool writes partial file** (network interrupt during upload/download)
+2. **Editor auto-save + sync race** (editor writes, sync picks up partial write)
+3. **Git checkout on sync-monitored directory** (sync tool re-writes the checkout)
+4. **PowerShell `Set-Content`** writes UTF-16 (see P1), then sync tool reads it as UTF-8
+
+### Detection
+- `GATE-FFFD` catches U+FFFD **after** conversion, but the file may already be committed
+- `git diff` shows garbled Chinese characters
+- Python: `open(path).read()` succeeds but content contains `\ufffd` replacement chars
+
+### Fix: `.gitattributes` Encoding Enforcement (Recommended)
+
+Add to the repository root:
+
+```gitattributes
+# Force UTF-8 for all text files — prevents encoding drift
+*.md    text eol=lf encoding=utf-8
+*.py    text eol=lf encoding=utf-8
+*.yaml  text eol=lf encoding=utf-8
+*.yml   text eol=lf encoding=utf-8
+*.json  text eol=lf encoding=utf-8
+*.toml  text eol=lf encoding=utf-8
+```
+
+> `.gitattributes` tells Git to normalize line endings and flag encoding violations, but
+> does NOT prevent sync tools from corrupting files on disk. It only catches issues at
+> `git add` time.
+
+### Fix: Pre-commit Hook (Defense in Depth)
+
+```bash
+#!/bin/sh
+# .git/hooks/pre-commit — reject files with U+FFFD or invalid UTF-8
+for f in $(git diff --cached --name-only --diff-filter=ACM -- '*.md' '*.py'); do
+  if python3 -c "
+import sys
+try:
+    data = open('$f', 'rb').read()
+    text = data.decode('utf-8', errors='strict')
+    if '\ufffd' in text:
+        sys.exit(1)
+except UnicodeDecodeError:
+    sys.exit(1)
+  "; then
+    :
+  else
+    echo "BLOCKED: $f contains invalid UTF-8 or U+FFFD"
+    exit 1
+  fi
+done
+```
+
+### Fix: Recovery When Corruption Already Happened
+
+1. **Check git history**: `git show HEAD~1:path/to/file.md > recovered.md`
+2. **Check sync tool trash/versions**: BaiduSyncdisk keeps version history
+3. **Rebuild from template**: For `_tracker.md`, re-generate from the tracker template
+
+### Rule
+1. **Never edit plan-doc files in sync-monitored directories via PowerShell `Set-Content`**
+2. **Always use Python `open(f, 'w', encoding='utf-8')` or AI code editors** for writing
+3. **Add `.gitattributes`** to every repo that contains CJK content
+4. **If U+FFFD detected in a committed file**: treat as critical — recover from git history immediately
+
+### Related
+- P1: Windows Encoding — CJK Characters Become `?` Marks
+- GATE-FFFD: Scans for U+FFFD before Jules dispatch
+- GATE-UTF8: Auto-converts UTF-16/GBK (added in B011)
+
