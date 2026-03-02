@@ -1,19 +1,38 @@
 ---
 name: pdca-ai-coding
-description: Structured Plan-Do-Check-Act, PDCA, framework for AI code generation. Use when implementing features, adding functionality, refactoring code, or any coding task that benefits from test-driven development, quality assurance, and continuous improvement. Prevents code quality issues, reduces debugging time, and maintains architectural consistency through structured prompts and human-AI collaboration.
+description: >-
+  This skill should be used when the user asks to "implement a feature", "fix a bug", "refactor code",
+  "write tests", "do TDD", "run verification gates", "PDCA", "修bug", "重构", "写测试", "做TDD", "跑门禁".
 ---
 # PDCA AI Coding Framework
 
-Structured workflow for high-quality AI-assisted code generation using Plan-Do-Check-Act principles.\r
-\r
-## Cold-start vs Warm-start (choose before proceeding)\r
-\r
-| Mode | Trigger | Action |\r
-|------|---------|--------|\r
-| **Cold-start** | First time in this repo / no recent analysis / major architectural change / plan-doc-editor module present but no state audit | **Full Analysis first**: scan repo contract priority (gemini/agent/rules → architecture → .claude optional) → PDCA Analysis phase → plan before code |\r
-| **Warm-start** | Familiar codebase + small well-understood change (≤1 feature / ≤5 files) | **Lite Mode eligible**: skip to Lite Mode below if all eligibility criteria met |\r
-\r
-> Project context discovery: follow `repo-contract-priority.md` (see pdca-ai-coding/references/).
+Structured workflow for high-quality AI-assisted code generation using Plan-Do-Check-Act principles.
+
+## Compatibility (Standalone-first)
+
+- **Standalone**: Use PDCA end-to-end in any repo; if no plan module exists, keep artifacts minimal and local.
+- **Integrated (optional)**: If a `plan-doc-editor` plan module is present, follow "Adaptive Execution (Env-Aware)" to respect trackers/B-files and write back via `Plan Update Targets`.
+
+## Quick Start (30 seconds)
+
+- **Default (Lite)**: Follow **Lite Mode** below (write failing test → minimal fix → run tests).
+- **If risk/high-impact**: Use **Strict Mode** below, then run the Full PDCA prompts.
+- **If a plan module exists**: Read only the active B-file header/steps + tracker active rows; do not edit trackers directly—return `Plan Update Targets`.
+- Copy/paste templates: `examples/README.md`.
+
+## Strict Mode (gates fully on)
+
+- Enable the **ATDD Gate Overlay** (Gate A/B/C/D) and treat gate output as evidence, not narrative.
+- If `plan-doc-editor` is present: respect its state machine (no unapproved execution, no silent plan edits).
+
+## Cold-start vs Warm-start (choose before proceeding)
+
+| Mode | Trigger | Action |
+|------|---------|--------|
+| **Cold-start** | First time in this repo / no recent analysis / major architectural change / plan-doc-editor module present but no state audit | **Full Analysis first**: scan repo contract priority (gemini/agent/rules → architecture → .claude optional) → PDCA Analysis phase → plan before code |
+| **Warm-start** | Familiar codebase + small well-understood change (≤1 feature / ≤5 files) | **Lite Mode eligible**: skip to Lite Mode below if all eligibility criteria met |
+
+> Project context discovery: follow `references/repo-contract-priority.md`.
 
 ## When to Use This Skill
 
@@ -58,7 +77,7 @@ For small, well-understood changes that don't justify the full PDCA cycle.
 - Test failures reveal deeper issues
 - Changes grow beyond 50 lines
 
-## Quick Start
+## Standard Session (Full PDCA)
 
 For a standard coding session:
 

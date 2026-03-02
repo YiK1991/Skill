@@ -6,6 +6,32 @@ description: This skill should be used when the user asks to "restructure a plan
 
 Restructure **complex plans too long for one context window** into layered modules. Never simplify away details — restructure so humans and AI load only needed context.
 
+## Compatibility (Low coupling)
+
+- **Standalone**: Works with only this folder's `scripts/`, `references/`, and `assets/`.
+- **Integrated (optional)**: Can hand off execution to `pdca-ai-coding` and async investigation/review to `jules-cli`, but degrades gracefully if they are not installed.
+
+## Quick Start (30 seconds)
+
+Run from the `plan-doc-editor/` directory (where this SKILL.md lives).
+
+1. Create a plan module skeleton (or copy `examples/minimal-module/`):
+
+```powershell
+python scripts/init_plan_skill.py plans <slug> "<title>"
+```
+
+2. Run Pass 0 only: open `INDEX.md` + `CURRENT.md` + tracker active rows; write `investigation/INV-000_state_audit.md`.
+3. Choose one next hop:
+   - Execution → create/activate one `execution/B*.md` and hand off to `pdca-ai-coding` (or execute manually).
+   - Investigation/review → create `questions/Q-*.md` (and optionally dispatch via `jules-cli`).
+
+## Strict Mode (gates fully on)
+
+- Always perform **G-SYNC** before any design/task breakdown (see Cold-start).
+- Enforce Two-Pass loading + RefSpec links; offload logs/tool output instead of pasting.
+- Any new decision/change must land in `references/P*` + `change_log.md` before execution proceeds.
+
 ## Cold-start vs Warm-start (choose before proceeding)
 
 | Mode | Trigger | Action |
@@ -13,7 +39,7 @@ Restructure **complex plans too long for one context window** into layered modul
 | **Cold-start** | First time seeing this plan module / no recent state audit / change_log shows major changes / obvious conflicts | **G-SYNC first**: Pass0 (INDEX+CURRENT+trackers) → write INV-000 state audit → update CURRENT §1 + change_log → then design |
 | **Warm-start** | Recent state audit exists + small scope (≤1 B file / few refs) | **Direct execution**: INDEX+CURRENT + active rows → PDCA Lite / Jules task → Plan Update Targets |
 
-> Project context discovery: follow `repo-contract-priority.md` (gemini/agent/rules → architecture → plan module → .claude optional).
+> Project context discovery (standalone): read repo-local instructions in this order: AGENTS.md → gemini.md/agent.md/rules.md → architecture docs → plan module (INDEX/CURRENT) → optional .claude/instructions.md.
 
 ## PD Protocol (Two-Pass Loading)
 
@@ -24,7 +50,7 @@ Every interaction with a plan module follows **two passes**:
 
 **Hard rule**: Before deep-reading any new file or section, add it to the B file's "Before You Start" table (with a Why column entry). Read only what you registered.
 
-> *Rationale*: Progressive disclosure keeps agents fast while giving access to full context on demand. See `context-fundamentals` skill for the underlying principle.
+> *Rationale*: Progressive disclosure keeps agents fast while preserving access to full detail on demand.
 
 ## Core Flow
 
@@ -73,7 +99,7 @@ Define Standards (§0 Norms)
 3. B frontmatter pointers: `prerequisites` / `related_investigations` / `impact_refs`
 4. CURRENT §4 Context Card links
 
-> *Source*: `filesystem-context` — "dynamic context is loaded on-demand; the agent receives minimal static pointers and uses search tools to load full content when needed."
+> *Rationale*: Dynamic context is loaded on-demand; avoid full-text scans.
 
 ### Dynamic Context Discovery (Discovery Ladder)
 
@@ -215,7 +241,7 @@ JIT identifiers = **identifiers, not content**. Cross-file sharing follows three
 2. **≤3 lines + 1 link**: Inline summaries max 3 lines; anything longer → move to `references/` and link via RefSpec.
 3. **Scan-before-read**: Read YAML frontmatter + headings first, then decide whether to deep-read the body. This makes PD's "load on demand" executable.
 
-> *Source*: `context-fundamentals` — "just-in-time approach maintains lightweight identifiers… load dynamically."
+> *Rationale*: JIT identifiers keep hub docs light; load details only when needed.
 
 Details: [plan-skill-structure.md § Cross-Reference](references/plan-skill-structure.md#cross-reference-protocol-views-not-copies). Template: [batch-template.md](assets/batch-template.md)
 
@@ -249,7 +275,7 @@ Long documents suffer from **lost-in-the-middle** — recall drops 10–40% for 
 
 **Drift fix**: If recitation reveals mismatch (goal/constraints/IDs differ from current work) → update CURRENT Head/Tail Anchors + tracker first, then resume execution.
 
-> *Source*: `filesystem-context` — "plan persistence: write plan to filesystem, re-read on each turn to manipulate attention through recitation."
+> *Rationale*: Recitation makes long-running plans resilient to context drift.
 
 ## Workflows
 

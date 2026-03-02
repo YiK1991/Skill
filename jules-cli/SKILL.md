@@ -14,6 +14,36 @@ description: >-
 
 Submit asynchronous tasks to Jules, track status, review results via PR, and iterate.
 
+## Compatibility (Standalone-first)
+
+- **Standalone**: Run the scripts in this folder (`scripts/dispatch_prompt_pack.py`, `scripts/jules_bridge.py`); no other skills required.
+- **Integrated**: If using `plan-doc-editor`, point Document Placement to your plan module (e.g. `<plan_module>/investigation/`) and return `Plan Update Targets` for write-back.
+
+## Quick Start (30 seconds)
+
+Run from the `jules-cli/` directory (where this SKILL.md lives).
+
+1. Copy `examples/minimal-pack/` to a temp folder (or create `PACK.md` + `tasks/TASK-*.md`).
+2. Submit (always pass `--starting-branch` explicitly):
+
+```powershell
+python scripts/dispatch_prompt_pack.py `
+  --pack-dir C:\temp\jules_pack `
+  --repo <owner/repo> `
+  --starting-branch <branch>
+```
+
+3. Monitor status:
+
+```powershell
+python scripts/jules_bridge.py --json status --session-id <id>
+```
+
+## Strict Mode (gates fully on)
+
+- Before dispatch: complete **H1–H7** checklist below (copy the XML block and fill it explicitly).
+- After Jules completes (review/research): run `python scripts/gate_pd_output.py <report.md>` before merge.
+
 ## Cold-start vs Warm-start (choose before proceeding)
 
 | Mode | Trigger | Action |
@@ -105,7 +135,7 @@ Confirm all 7 items. If ANY fails, fix before proceeding.
 ### Step 4: Submit via dispatch script
 
 ```powershell
-python .agent\skills\jules-cli\scripts\dispatch_prompt_pack.py `
+python scripts/dispatch_prompt_pack.py `
   --pack-dir C:\temp\jules_pack `
   --repo YiK1991/Amazon_SaaS_ERP `
   --starting-branch master
@@ -116,7 +146,7 @@ Check exit code: 0 = success, 1 = failure (report to user immediately).
 ### Step 5: Monitor status
 
 ```powershell
-python .agent\skills\jules-cli\scripts\jules_bridge.py --json status --session-id <id>
+python scripts/jules_bridge.py --json status --session-id <id>
 ```
 
 > **Asynchronous Yielding (CRITICAL):**
