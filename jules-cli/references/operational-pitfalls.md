@@ -49,6 +49,12 @@ subprocess.run(["jules", "remote", "new", ...], input=prompt)
 
 # ❌ WRONG: open() with errors="replace" — silently corrupts content
 open(path, encoding="utf-8", errors="replace").read()
+
+# ❌ WRONG: subprocess.run() without encoding — Windows defaults to GBK
+result = subprocess.run(["python", "jules_bridge.py", "--json", "status", ...],
+                        capture_output=True, text=True)  # UnicodeDecodeError on CJK
+# ✅ FIX: 显式指定 encoding="utf-8"
+result = subprocess.run([...], capture_output=True, encoding="utf-8", errors="strict")
 ```
 
 ---
@@ -824,3 +830,123 @@ done
 - GATE-FFFD: Scans for U+FFFD before Jules dispatch
 - GATE-UTF8: Auto-converts UTF-16/GBK (added in B011)
 
+---
+
+## P17: Bridge 子命令名称错误 — `send-message` vs `send`
+
+### Symptom
+调用 `jules_bridge.py send-message` 报 `error: argument cmd: invalid choice: 'send-message'`。
+
+### Root Cause
+`jules_bridge.py` 注册的子命令恰好是 **单词** 而非连字形式。
+AI 或人类容易从 API 名称 `sendMessage` 联想到 `send-message`，但实际子命令是 `send`。
+
+### 正确的 6 个子命令
+
+| 子命令 | 用途 | 常见误用 |
+|--------|------|----------|
+| `submit` | 提交 session（需 `_JULES_DISPATCH=1`） | — |
+| `status` | 查询 session 状态 | — |
+| `wait` | 等待 session 到达目标状态 | — |
+| `approve` | 审批计划 | `approve-plan` |
+| `send` | 发送追加消息 | `send-message`, `send_message` |
+| `tail` | 尾部活动消息 | — |
+
+### Anti-Pattern
+```bash
+# ❌ WRONG: 子命令名错误
+python jules_bridge.py --json send-message --session-id <id> --message-file msg.md
+# error: argument cmd: invalid choice: 'send-message'
+
+# ✅ CORRECT
+python jules_bridge.py --json send --session-id <id> --message-file msg.md
+```
+
+### Rule
+子命令名称以 `jules_bridge.py --help` 输出为准。遇到 `invalid choice` 错误时，先运行 `--help` 确认。
+
+---
+
+## P18: `--json` 参数位置 — 全局选项必须放在子命令之前
+
+### Symptom
+```
+error: unrecognized arguments: --json
+```
+调用 `jules_bridge.py status --session-id <id> --json` 报参数不识别。
+
+### Root Cause
+`--json` 注册在 argparse 的**根 parser** 上（全局选项），而子命令（`status`, `send` 等）有独立的 subparser。
+argparse 解析顺序是：先消费根 parser 参数，然后将剩余参数交给 subparser。
+若 `--json` 放在子命令之后，它会被当作 subparser 的参数，而 subparser 不认识 `--json`。
+
+### Fix
+```bash
+# ✅ CORRECT: 全局选项在子命令之前
+python jules_bridge.py --json status --session-id <id>
+python jules_bridge.py --json send --session-id <id> --message-file msg.md
+python jules_bridge.py --json --repo owner/repo submit --title TASK-001 --prompt-file task.md
+
+# ❌ WRONG: 全局选项在子命令之后
+python jules_bridge.py status --session-id <id> --json
+python jules_bridge.py send --session-id <id> --message-file msg.md --json
+```
+
+### 全局选项清单
+以下选项均属于根 parser，必须放在子命令之前：
+`--mode`, `--repo`, `--starting-branch`, `--source`, `--automation-mode`,
+`--require-plan-approval`, `--state-dir`, `--timeout-s`, `--poll-interval-s`, `--json`
+
+### Rule
+所有全局选项放在子命令名之前。子命令特有选项（`--session-id`, `--title`, `--prompt-file` 等）放在子命令之后。
+
+### Related
+- P12: AI Self-Submit — 常见于 AI agent 拼接命令时参数顺序错误
+- `jules-tools-notes.md` → Bridge Script 参数顺序陷阱
+
+---
+
+## P19: 越界修改 — Jules 好心办坏事
+
+### Symptom
+PR 中包含：
+- 修改白名单之外的文件
+- 未声明的新目录（`_governance/`, `Reviews/`, `04_Reports/` 等）
+- 遗留过程文件（`debug_*.py`, `check_*.py`, `.tmp` 文件）
+- 与任务无关的格式化、代码重排
+
+### Root Cause
+Jules 默认"尽力而为"——如果它认为某个修改"有用"，就会做。
+没有约束机制时，越界率约 ~15%。单次声明（如 Document Placement）
+易被 LLM "懒评估"跳过。
+
+### Fix: Exit Oath（出口宣誓）
+
+Prompt Envelope 模板 §7 要求 Jules 在创建 PR 之前，在 PR description 中
+逐条输出 E1-E6 宣誓声明。每一条宣誓迫使 LLM 重新审视对应约束。
+
+与入口端 Pre-Flight Checklist（H1-H7）对称：
+- **H1-H7**：dispatch 前 → 本地 AI 逐条确认
+- **E1-E6**：PR 前 → Jules 逐条宣誓
+
+### Anti-Pattern
+```markdown
+# ❌ 无修改白名单 + 无 Exit Oath
+# Jules 创建了 _governance/ 和 Reviews/ 目录，修改了 3 个白名单外文件
+# PR 包含 debug_check.py 临时脚本
+
+# ✅ §3 修改白名单 + §7 Exit Oath
+# Jules 在 PR description 中输出了 E1-E6 宣誓
+# 所有修改在白名单内，无新目录，无过程文件
+```
+
+### Rule
+1. 每个 implement/review 模板必须包含 §7 Exit Oath
+2. PR description 中必须出现 `<Exit_Oath>` 块
+3. PR reviewer 在审查时首先检查 Exit Oath 是否存在且内容合理
+4. 缺失 Exit Oath 的 PR 应要求补充后再 merge
+
+### Related
+- P6: Document Placement — Jules Creates Unauthorized Directories
+- P12: AI Self-Submit — Triple-Failure Cascade
+- P13: Monolithic Report / No Progressive Disclosure

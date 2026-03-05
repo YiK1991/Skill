@@ -15,6 +15,7 @@ Gates block submission before any API call is made:
   GATE-FFFD (Integrity):      Reject prompts containing U+FFFD (silent corruption indicator).
   GATE-PATH (Path Check):     Validate review_scope paths exist in target repo; warn on body path typos.
   GATE-TASKID (Content):      task_id in file header must match filename prefix (case-insensitive).
+  GATE-HARDEN (Auto-inject):  Append missing §5 Output Format, §7 Exit Oath, Review PR notice.
   GATE-3    (Smoke Test):     First task submitted alone; failure aborts batch.
 
 See jules-cli/references/operational-pitfalls.md for the full pitfall catalog.
@@ -567,6 +568,138 @@ def hydrate_prompt_files(task_files: List[str]) -> List[str]:
     return task_files
 
 
+# ========================== GATE-HARDEN: Auto-inject Missing Boilerplate ==========
+
+_INTENT_RE = re.compile(r"^-?\s*intent:\s*(\w+)", re.MULTILINE | re.IGNORECASE)
+
+# --- Hardcoded injection blocks (never pass through AI) ---
+
+_HARDEN_OUTPUT_REVIEW = """
+
+## 5) Output Format — PD-OUT v1 (MANDATORY — 脚本自动注入)
+
+> **报告必须严格遵循模板文件**：`.agent/skills/jules-cli/references/output-template-review.md`
+> Jules 必须在执行前先阅读该模板，按模板中的段落结构组织审查报告。
+> 缺少 Head Anchor / Issue Index / Details / Output Contract 任一段落 → 报告不合格。
+"""
+
+_HARDEN_OUTPUT_IMPLEMENT = """
+
+## 5) Output Format (MANDATORY — 脚本自动注入)
+
+> **报告必须严格遵循模板文件**：`.agent/skills/jules-cli/references/output-template-implement.md`
+> Jules 必须在执行前先阅读该模板，按模板中的段落结构组织 PR 报告。
+> 缺少 Head Anchor / Changes / Evidence / Output Contract 任一段落 → 报告不合格。
+"""
+
+_HARDEN_EXIT_OATH_REVIEW = """
+
+## 7) Exit Oath — 出口宣誓 (MANDATORY — 脚本自动注入)
+
+> **位置**：写入 PR description。**严禁**写入报告文件或任何源代码文件。
+> **时机**：创建 PR 之前，必须完成以下宣誓。如有任一条无法宣誓，必须先修正再提交。
+> **关键规则**：每条宣誓必须 **完整重述** 该 prompt 中声明的具体约束，而非泛泛确认。
+
+在 PR description 的末尾，输出以下宣誓块（将占位符替换为本 prompt 中的实际值）：
+
+```xml
+{{ HYDRATE: ${SKILLS_DIR}/jules-cli/references/exit-oath-review.md }}
+```
+"""
+
+_HARDEN_EXIT_OATH_IMPLEMENT = """
+
+## 7) Exit Oath — 出口宣誓 (MANDATORY — 脚本自动注入)
+
+> **位置**：写入 PR description。**严禁**写入报告文件或任何源代码文件。
+> **时机**：创建 PR 之前，必须完成以下宣誓。如有任一条无法宣誓，必须先修正再提交。
+> **关键规则**：每条宣誓必须 **完整重述** 该 prompt 中声明的具体约束，而非泛泛确认。
+
+在 PR description 的末尾，输出以下宣誓块（将占位符替换为本 prompt 中的实际值）：
+
+```xml
+{{ HYDRATE: ${SKILLS_DIR}/jules-cli/references/exit-oath-implement.md }}
+```
+"""
+
+_HARDEN_REVIEW_PR_NOTICE = """
+
+> ⚠️ **READ-ONLY ≠ 不能提交 PR**（脚本自动注入）。你的工作成果必须通过 PR 提交。
+> PR 中只允许有 .md 审查报告，不允许有 .py/.ts/.json 等源代码修改。
+"""
+
+
+def _detect_intent(content: str) -> str:
+    """Detect task intent from 'intent:' line. Returns 'review' or 'implement'."""
+    m = _INTENT_RE.search(content)
+    if not m:
+        return "implement"  # default
+    raw = m.group(1).lower().strip()
+    if raw in ("review", "research"):
+        return "review"
+    return "implement"
+
+
+def harden_prompt_files(task_files: List[str]) -> List[str]:
+    """GATE-HARDEN: Auto-inject missing boilerplate sections into task files.
+
+    Scans each task file for missing critical sections and appends hardcoded
+    blocks. This ensures Jules always receives output format references,
+    exit oath instructions, and PR submission clarifications, regardless
+    of whether the local AI included them.
+
+    Files are modified in-place (they should already be temp copies from GATE-2).
+    """
+    total_injected = 0
+    for tf in task_files:
+        with open(tf, encoding="utf-8") as f:
+            content = f.read()
+
+        intent = _detect_intent(content)
+        appended = []
+
+        # 1. Output Format reference
+        if "output-template-" not in content:
+            if intent == "review":
+                appended.append(_HARDEN_OUTPUT_REVIEW)
+            else:
+                appended.append(_HARDEN_OUTPUT_IMPLEMENT)
+
+        # 2. Exit Oath
+        if "Exit_Oath" not in content and "Exit Oath" not in content:
+            if intent == "review":
+                appended.append(_HARDEN_EXIT_OATH_REVIEW)
+            else:
+                appended.append(_HARDEN_EXIT_OATH_IMPLEMENT)
+
+        # 3. Review PR notice
+        if (
+            intent == "review"
+            and "不能提交 PR" not in content
+            and "READ-ONLY" not in content
+        ):
+            appended.append(_HARDEN_REVIEW_PR_NOTICE)
+
+        if appended:
+            with open(tf, "a", encoding="utf-8") as f:
+                for block in appended:
+                    f.write(block)
+            total_injected += len(appended)
+            eprint(
+                f"  GATE-HARDEN: {os.path.basename(tf)} [{intent}] "
+                f"← injected {len(appended)} section(s)"
+            )
+
+    if total_injected:
+        eprint(
+            f"GATE-HARDEN PASSED: Injected {total_injected} boilerplate section(s) "
+            f"across {len(task_files)} file(s)"
+        )
+    else:
+        eprint("GATE-HARDEN PASSED: All files already contain required sections")
+    return task_files
+
+
 # ========================== GATE-FFFD: Replacement Character Check ================
 
 
@@ -1064,7 +1197,13 @@ def main() -> None:
     else:
         eprint("GATE-CLI-BATCH PASSED: JULES_API_KEY found, API mode active.")
 
-    # ---- GATE-2b: Hydrate {{ HYDRATE: ... }} macros ----
+    # ---- GATE-2b: Hydrate {{ HYDRATE: ... }} macros (pass 1) ----
+    task_files = hydrate_prompt_files(task_files)
+
+    # ---- GATE-HARDEN: Auto-inject missing boilerplate ----
+    task_files = harden_prompt_files(task_files)
+
+    # ---- GATE-2b pass 2: Hydrate macros injected by GATE-HARDEN ----
     task_files = hydrate_prompt_files(task_files)
 
     # ---- GATE-HYDRATE-ERR: Reject if any HYDRATE macros failed ----

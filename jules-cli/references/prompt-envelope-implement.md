@@ -139,37 +139,31 @@
 - If you cannot produce RefSpec evidence for a claim: mark it as UNKNOWN (do not fabricate).
 ```
 
-## 5) Output Format
-### Documentation Output (Progressive Disclosure REQUIRED)
+## 5) Output Format (MANDATORY)
 
-> **触发条件**：当任务 intent 涉及 write docs / update README / create spec / generate report 时，文档输出必须遵循以下分层结构。纯代码变更不受此约束。
-
-文档结构至少包含：
-1. **TL;DR / Quick Start**（给 90% 用户的一句话摘要）
-2. **Basic**（默认路径与核心用法）
-3. **Advanced / Edge Cases**（折叠层，仅需深入时阅读）
-4. **Appendix**（长解释、示例、FAQ、术语）
-
-强制规则：
-- 使用**稳定 heading anchors**，跨文件只用 RefSpec 链接（`path#anchor`），不复制粘贴大段内容
-- 文档缺乏 PD 导航结构（无 Index/Head Anchor/稳定 anchors）或包含大段证据/日志 → **必须拆分**为 `INDEX/OVERVIEW.md` + `DETAILS.md`（放在修改白名单允许路径内）
-- 仍遵守 §4 的 placement 双写 + 禁止新目录红线
-
-### A) Changes
-- 变更文件清单（文件路径 + 简述）
-
-### B) Evidence
-- 测试命令 + 输出（成功/失败 + 关键日志）
-
-### C) Risk & Rollback
-- recommended next step
-- risk notes
-- rollback plan
+> **报告必须严格遵循模板文件**：`.agent/skills/jules-cli/references/output-template-implement.md`
+> Jules 必须在执行前先阅读该模板，按模板中的段落结构组织 PR 报告。
+> 缺少 Head Anchor / Changes / Evidence / Output Contract 任一段落 → 报告不合格。
 
 ## 6) Stop Conditions
 如果出现以下任一情况：需求不明确 / 必要上下文缺失 / 需要越界改动——
 请停止执行，输出 what is missing + 建议补充什么，然后等待反馈。
+
+## 7) Exit Oath — 出口宣誓 (MANDATORY)
+
+> **位置**：写入 PR description。**严禁**写入报告文件或任何源代码文件。
+> **时机**：创建 PR 之前，必须完成以下宣誓。如有任一条无法宣誓，必须先修正再提交。
+> **关键规则**：每条宣誓必须 **完整重述** 该 prompt 中声明的具体约束，而非泛泛确认。
+
+在 PR description 的末尾，逐字输出以下宣誓块（将 `{...}` 替换为本 prompt 中的实际值）：
+
+```xml
+{{ HYDRATE: ${SKILLS_DIR}/jules-cli/references/exit-oath-implement.md }}
 ```
+
+> **原理**：要求逐条重述（而非泛化确认）迫使 LLM 重新读取并复述 prompt 中的约束，
+> 相当于在 PR 创建前执行一次强制性的"约束回忆测试"。PR reviewer 可直接比对
+> 宣誓中列出的白名单 vs 实际 diff，形成可审计的闭环。
 
 ---
 

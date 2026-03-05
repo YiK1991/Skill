@@ -109,6 +109,18 @@ def check_refspec_usage(content: str, filepath: str) -> list:
 # --------------- Main ---------------
 
 
+def check_exit_oath_misplaced(content: str, filepath: str) -> list:
+    """Warn if Exit_Oath block is found inside the report (should be in PR description only)."""
+    violations = []
+    if "<Exit_Oath" in content or "</Exit_Oath>" in content:
+        violations.append(
+            "  EXIT OATH MISPLACED: <Exit_Oath> block found in report file. "
+            "The oath belongs in the PR description, NOT in the report. "
+            "See prompt-envelope §7 and P19."
+        )
+    return violations
+
+
 def gate_check(filepath: str) -> list:
     """Run all PD-OUT v1 checks on a single file."""
     path = Path(filepath)
@@ -132,6 +144,11 @@ def gate_check(filepath: str) -> list:
     if ref_v:
         all_violations.append(f"[RefSpec Check] {filepath}")
         all_violations.extend(ref_v)
+
+    oath_v = check_exit_oath_misplaced(content, filepath)
+    if oath_v:
+        all_violations.append(f"[Exit Oath Check] {filepath}")
+        all_violations.extend(oath_v)
 
     return all_violations
 

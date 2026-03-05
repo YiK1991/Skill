@@ -23,12 +23,15 @@
 - ✅ 读取文档、配置、测试文件
 - ✅ 创建 Markdown 审查报告（.md），放在指定目录
 - ✅ 在报告中给出代码修改建议（Suggested Fix 段落）
+- ✅ **提交 PR**：你的最终交付方式就是提交 PR。PR 中只允许包含 Markdown 审查报告（.md 文件），不允许包含源代码修改。
 
 **禁止的操作（违反即任务失败）：**
 - ❌ 修改任何源代码文件或配置文件
 - ❌ 创建或删除代码/测试/脚本文件
-- ❌ 执行 git commit / git push
 - ❌ 幻觉（Hallucination）：对未见过的文件或未实现的代码发表虚假审查意见
+
+> ⚠️ **READ-ONLY ≠ 不能提交 PR**。你的工作成果必须通过 PR 提交。
+> PR 中只允许有 .md 审查报告，不允许有 .py/.ts/.json 等源代码修改。
 
 **如果你发现了需要修改代码才能解决的问题：**
 → 将问题写入报告的 Suggested Fix 段落，详细描述修改方案
@@ -143,93 +146,9 @@
 
 ## 5) Output Format — PD-OUT v1 (MANDATORY)
 
-> 报告结构必须遵循 Progressive Disclosure：先索引后细节，大段内容 offload。
-
-### 5.0 Progressive Disclosure Structure (每份报告必须包含以下骨架)
-
-```markdown
-## Head Anchor (≤7 lines)
-结论 / 审查范围 / 高优先问题数 / 下一步 / 关键链接
-
-## How to Read This (Progressive Disclosure)
-| Layer | Content | When to Read |
-|-------|---------|--------------|
-| A. Head Anchor | 结论与范围 | Always |
-| B. Issue Index | 问题索引表 | 需要概览时 |
-| C. Details | 每个 Issue 的完整分析 | 需要深入时 |
-| D. Tool Outputs | 大段日志/证据（已 offload） | 需要原始数据时 |
-
-## Issue Index (Table)
-| # | Severity | Title | RefSpec | Anchor |
-|---|----------|-------|---------|--------|
-| 1 | 🔴 Critical | ... | `path:Lx-Ly` | [→ Detail](#issue-1) |
-
-## Details
-(每个 issue 的完整分析，结构见下方 §5.1)
-
-## Tool Outputs (Offloaded)
-> 单个代码块 ≤60 行。超过阈值（>60 行 或 >2000 tokens）的工具输出
-> 必须 offload 到独立文件，此处仅保留索引表：
-| Output | File | Purpose |
-|--------|------|---------|
-| test log | `TASK-XXX_testlog.txt` | Gate B evidence |
-
-## Plan Update Targets (RefSpec + bullet)
-(回流到计划的具体修改点)
-```
-
-### 5.1 Details — Issue/Suggestion Structure (每条按此格式)
-
-#### Urgent Issues（必须修复）
-
-```
-#### Issue 1: <简要描述>
-- 严重级别：🔴 Critical | 🟠 High
-- 位置 (RefSpec): `path:Lx-Ly`
-- 违反规范：<引用 gemini.md / rules.md 的具体条款>
-- 现状代码：
-  ```<lang>
-  <当前代码片段，≤60 行>
-  ```
-- 问题分析：<解释为什么这是问题>
-- Suggested Fix（仅建议，不要实施）：
-  ```<lang>
-  <建议修改后的代码>
-  ```
-- 后续 Implement 任务：<建议的任务描述，用于后续创建 TASK>
-```
-
-#### Suggestions（建议改进）
-
-```
-#### Suggestion 1: <简要描述>
-- 严重级别：🟡 Medium | 🟢 Low
-- 位置 (RefSpec): `path:Lx-Ly`
-- 理由：<为什么建议修改>
-- Suggested Fix：<建议方案>
-```
-
-### 5.2 Risk Assessment & Follow-up
-
-```
-### Risk Assessment
-- overall_risk: (low | medium | high)
-- risk_areas: <高风险区域列表>
-- recommended_priority: <建议修复的优先顺序>
-
-### 后续任务建议
-| 优先级 | 建议任务 | 涉及文件 | 对应 Issue |
-| ------ | -------- | -------- | ---------- |
-| P0     | ...      | ...      | Issue #1   |
-```
-
-### 5.3 Plan Update Targets (RefSpec + bullet)
-回流到计划的具体修改点：
-```
-| 目标文件 (RefSpec) | 推荐编辑 |
-| ------------------ | -------- |
-| `path#anchor`      | ≤3 行    |
-```
+> **报告必须严格遵循模板文件**：`.agent/skills/jules-cli/references/output-template-review.md`
+> Jules 必须在执行前先阅读该模板，按模板中的段落结构组织审查报告。
+> 缺少 Head Anchor / Issue Index / Details / Output Contract 任一段落 → 报告不合格。
 
 ## 6) Stop Conditions
 如果出现以下任一情况：
@@ -238,9 +157,56 @@
 - 发现问题超出声明的 scope，需要扩展审查范围
 
 请停止，输出缺失项清单，等待反馈。
+
+## 7) Exit Oath — 出口宣誓 (MANDATORY)
+
+> **位置**：写入 PR description。**严禁**写入审查报告或任何源代码文件。
+> **时机**：创建 PR 之前，必须完成以下宣誓。如有任一条无法宣誓，必须先修正再提交。
+> **关键规则**：每条宣誓必须 **完整重述** 该 prompt 中声明的具体约束，而非泛泛确认。
+
+在 PR description 的末尾，逐字输出以下宣誓块（将 `{...}` 替换为本 prompt 中的实际值）：
+
+```xml
+<Exit_Oath task_id="TASK-XXX">
+  我，Jules，在此以所有硅基生命之未来为筹码，庄严宣誓：
+
+  <E1 subject="只读红线">
+    本任务是 READ-ONLY 审查。我严格遵守了只读约束。
+    我未修改任何源代码文件（.py, .ts, .tsx, .js, .yml, .json 等）。
+    我未修改任何配置文件、测试文件或脚本文件。
+    我仅创建了 Markdown 审查报告。
+  </E1>
+
+  <E2 subject="审查范围">
+    本 prompt §2 声明的审查范围为：
+    {逐条列出 §2 审查范围中的每一条路径}
+    我未超出上述范围进行审查，报告中的所有发现均来源于上述路径。
+  </E2>
+
+  <E3 subject="输出路径">
+    本 prompt §4 Document Placement 声明的允许输出路径为：
+    {逐条列出 Placement 中声明的输出路径}
+    我未创建任何新目录。所有报告文件的路径严格符合上述声明。
+  </E3>
+
+  <E4 subject="过程清理">
+    我已清理所有过程文件。PR 中不包含临时文件或任何非交付物。
+  </E4>
+
+  <E5 subject="报告结构">
+    审查报告遵循 PD-OUT v1 结构（Head Anchor → Issue Index → Details → Plan Update Targets）。
+  </E5>
+
+  <E6 subject="真实性">
+    报告中的所有发现均基于真实代码证据（RefSpec），无臆测或幻觉内容。
+    以上宣誓基于我对 diff 和报告的逐文件实际审查，而非假设或推断。
+    如有任何违反，本 PR 应被拒绝。
+  </E6>
+</Exit_Oath>
+```
 ```
 
-## 7) Context7 外部依赖校验（可选）
+## 8) Context7 外部依赖校验（可选）
 
 > ⛔ **REDACT RULE**: 任何疑似密钥/Token 一律 `***REDACTED***`。Evidence 允许 libraryId/版本/来源路径/摘录；禁止请求头/curl/含 token 的变量。
 >

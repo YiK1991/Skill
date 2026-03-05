@@ -167,9 +167,10 @@ python scripts/jules_bridge.py --json status --session-id <id>
 6. **CI quality red line** — Code changes must not break tests; no skip/comment workarounds.
 7. **Three feedback channels** — Plan loop → In-flight loop (sendMessage) → PR loop (`@Jules`).
 8. **Unified labels** — Every task carries `RUN-ID`, `ASPECT-ID`, `CTX-ID`.
-9. **UTF-8 + control-plane ASCII** — Prompt files MUST be UTF-8. CJK allowed in body. Control-plane identifiers (task_id, paths, section anchors) MUST be ASCII. PowerShell pipe is forbidden. See P1.
+9. **UTF-8 + control-plane ASCII** — Prompt files MUST be UTF-8. CJK allowed in body. Control-plane identifiers (task_id, paths, section anchors) MUST be ASCII. PowerShell pipe is forbidden. See P1. Subprocess callers MUST use `encoding="utf-8"`. See P17/P18 for subcommand names and `--json` position.
 10. **Focused > Generic** — Derive tasks from concrete plan decisions, not broad review dimensions. See P5.
 11. **State machine re-entry** — Only return to main flow on: `AWAITING_PLAN_APPROVAL` (C-tier only), `AWAITING_USER_FEEDBACK`, `FAILED`, `COMPLETED`.
+12. **Exit Oath** — Jules MUST output E1-E6 attestation in PR description before creating PR. See prompt envelope §7. Symmetric with Pre-Flight H1-H7.
 
 ## Task Tiers
 
@@ -212,7 +213,7 @@ Derive review tasks from **specific plan decisions** (not broad dimensions):
 
 ### Reference Files
 
-- **`references/operational-pitfalls.md`** — **Critical: 11 field-proven pitfalls** (encoding, ghost sessions, path corruption, idempotency, task design, placement rules, --parallel, subprocess, batch template, dispatch scope, branch default)
+- **`references/operational-pitfalls.md`** — **Critical: 14 field-proven pitfalls** (encoding, ghost sessions, path corruption, idempotency, task design, placement rules, --parallel, subprocess, batch template, dispatch scope, branch default, subcommand names P17, --json position P18, boundary violations P19)
 - **`references/workflow-commands.md`** — Complete CLI commands, JSON output, batch templates, plan approval strategy, session strategy
 - **`references/prompt-envelope.md`** — Prompt Envelope routing guide & "further modification" message templates
 - **`references/prompt-envelope-implement.md`** — Implement/test task prompt template (with architecture & CI constraints)
